@@ -25,6 +25,22 @@ class Auditoria2PlayContract(unittest.TestCase):
         self.assertIn("play_finish_button", play)
         self.assertNotIn("series sin marcar", play)
         self.assertNotIn("Marcar serie", live)
+        self.assertIn("DropdownMenu", play)
+        self.assertNotIn("showEditStructureMenu", play)
+
+    def test_set_summary_without_weight(self):
+        line = (ROOT / "android/domain/src/main/java/dev/repera/domain/SetSummaryLine.kt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"$reps reps"', line)
+        models = (ROOT / "Packages/ReperaDomain/Sources/ReperaDomain/Models.swift").read_text(encoding="utf-8")
+        self.assertIn("reps) reps", models)
+
+    def test_keypad_chain_android(self):
+        live = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/LiveSetRows.kt").read_text(encoding="utf-8")
+        pad = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaNumericKeypad.kt").read_text(encoding="utf-8")
+        self.assertIn("keepKeypadOpenOnAdvance", live)
+        self.assertIn("dismissKeepsPadOpen", pad)
 
 
 if __name__ == "__main__":

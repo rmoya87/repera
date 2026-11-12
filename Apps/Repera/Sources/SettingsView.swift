@@ -1228,8 +1228,10 @@ private struct SettingsMembershipRows: View {
             Image(systemName: "checkmark.seal.fill")
                 .foregroundStyle(OG.label)
         }
-        Button("Gestionar suscripción") {
+        Button {
             openURL(CommercialConfig.manageSubscriptionsURL)
+        } label: {
+            Label("Gestionar suscripción", systemImage: "person.crop.circle")
         }
         .foregroundStyle(OG.label)
     }
@@ -1248,8 +1250,10 @@ private struct SettingsMembershipRows: View {
             Image(systemName: "lock.fill")
                 .foregroundStyle(OG.label)
         }
-        Button("Descubrir Pro") {
+        Button {
             subscriptions.presentPaywall(.settings, feature: .advancedProgress)
+        } label: {
+            Label("Descubrir Pro", systemImage: "sparkles")
         }
         .fontWeight(.semibold)
         .foregroundStyle(OG.label)

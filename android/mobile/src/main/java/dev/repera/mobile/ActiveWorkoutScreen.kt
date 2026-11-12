@@ -89,7 +89,6 @@ internal fun ActiveWorkoutScreen(
     var playReorderBlocks by remember { mutableStateOf<SnapshotStateList<BlockDraftUi>?>(null) }
     var playReorderError by remember { mutableStateOf<String?>(null) }
     var showFinishSummary by remember(workout.id) { mutableStateOf(false) }
-    var showEditStructureMenu by remember { mutableStateOf(false) }
     val nameById = remember(catalog) { catalog.associate { it.id to it.name } }
     val hasMoreExercises = workout.index + 1 < workout.total
     val inlineTitle = workout.title.ifBlank { "Entreno" }
@@ -282,7 +281,7 @@ internal fun ActiveWorkoutScreen(
     Box(Modifier.fillMaxSize()) {
     CompositionLocalProvider(LocalRemovePendingSet provides removePendingWithUndo) {
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
-        contentPadding=reperaScrollContentPadding(extraBottom = 16.dp),
+        contentPadding=reperaScrollContentPadding(extraBottom = 96.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item {
             ActiveWorkoutToolbar(
@@ -297,7 +296,8 @@ internal fun ActiveWorkoutScreen(
                 onFinish = { showFinishSummary = true },
                 showExerciseNav = false,
                 showFinishInToolbar = false,
-                onEditStructure = { showEditStructureMenu = true },
+                onEditPlan = onEditPlan,
+                onReorderStructure = { beginPlayReorder() },
                 startedLabel = workout.sets.firstOrNull()?.let { "En curso" }
             )
         }
@@ -502,33 +502,6 @@ internal fun ActiveWorkoutScreen(
             }
         }
     }
-    if (showEditStructureMenu) {
-        ReperaModalBottomSheet(onDismissRequest = { showEditStructureMenu = false }) {
-            Column(
-                Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    "Editar estructura",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                TextButton(onClick = {
-                    showEditStructureMenu = false
-                    onEditPlan()
-                }) { Text("Editar plan") }
-                TextButton(onClick = {
-                    showEditStructureMenu = false
-                    beginPlayReorder()
-                }) { Text("Reordenar") }
-                Text(
-                    "Añadir bloque, WOD y pizarra están al final del scroll.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
     }
         WorkoutUndoSnackbarHost(
             snackbarHostState,
@@ -711,11 +684,13 @@ private fun ActiveWorkoutToolbar(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
-    onEditStructure: () -> Unit,
+    onEditPlan: () -> Unit,
+    onReorderStructure: () -> Unit,
     startedLabel: String? = null,
     showExerciseNav: Boolean = true,
     showFinishInToolbar: Boolean = true,
 ) {
+    var structureMenuOpen by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -750,13 +725,36 @@ private fun ActiveWorkoutToolbar(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        ReperaToolbarGlassIconButton(
-            icon = Icons.Outlined.MoreVert,
-            contentDescription = "Editar estructura",
-            onClick = onEditStructure,
-            enabled = !busy,
-            modifier = Modifier.testTag("active_edit_structure")
-        )
+        Box {
+            ReperaToolbarGlassIconButton(
+                icon = Icons.Outlined.MoreVert,
+                contentDescription = "Editar estructura",
+                onClick = { structureMenuOpen = true },
+                enabled = !busy,
+                modifier = Modifier.testTag("active_edit_structure")
+            )
+            DropdownMenu(
+                expanded = structureMenuOpen,
+                onDismissRequest = { structureMenuOpen = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Editar plan") },
+                    leadingIcon = { Icon(Icons.Outlined.ViewAgenda, contentDescription = null) },
+                    onClick = {
+                        structureMenuOpen = false
+                        onEditPlan()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Reordenar") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
+                    onClick = {
+                        structureMenuOpen = false
+                        onReorderStructure()
+                    },
+                )
+            }
+        }
         if (showExerciseNav && index > 0) {
             ReperaToolbarGlassIconButton(
                 icon = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,

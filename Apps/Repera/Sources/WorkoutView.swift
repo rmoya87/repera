@@ -1308,15 +1308,17 @@ struct WorkoutView: View {
                 Section {
                     playBlockSectionBody(block, session: session)
                 } header: {
-                    HStack(spacing: 6) {
-                        Text("Bloque")
-                        if let format = block.format {
-                            Text("· \(format.displayName)")
-                        } else {
-                            Text("· Libre")
+                    if workoutBlocks(session).count > 1 {
+                        HStack(spacing: 6) {
+                            Text("Bloque")
+                            if let format = block.format {
+                                Text("· \(format.displayName)")
+                            } else {
+                                Text("· Libre")
+                            }
                         }
+                        .textCase(nil)
                     }
-                    .textCase(nil)
                 }
             }
 
@@ -1336,6 +1338,11 @@ struct WorkoutView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
+        .contentMargins(
+            .bottom,
+            store.restCoordinator.isActive ? 100 : 0,
+            for: .scrollContent
+        )
         .task(id: session.id) {
             while !Task.isCancelled, store.state.activeSession?.id == session.id {
                 await HealthKitStore.shared.refreshLiveMetrics()

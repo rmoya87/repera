@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.StackedLineChart
@@ -407,22 +408,16 @@ fun PlayRestFooter(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(
-                    progress = { 1f },
-                    modifier = Modifier.size(40.dp),
-                    color = brandGreen,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    strokeWidth = 3.dp
-                )
-                Text(
-                    "${timer.remainingSeconds}",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Icon(
+                Icons.Outlined.Timer,
+                contentDescription = null,
+                tint = MaterialTheme.reperaColors.timerRed,
+                modifier = Modifier.size(32.dp)
+            )
+            val mm = timer.remainingSeconds / 60
+            val ss = timer.remainingSeconds % 60
             Text(
-                "Descanso ${timer.remainingSeconds / 60}:${(timer.remainingSeconds % 60).toString().padStart(2, '0')}",
+                "Descanso $mm:${ss.toString().padStart(2, '0')}",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f)
             )

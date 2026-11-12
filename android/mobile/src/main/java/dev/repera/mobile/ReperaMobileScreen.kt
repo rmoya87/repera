@@ -34,6 +34,20 @@ import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.outlined.Verified
+import androidx.compose.material.icons.outlined.WorkspacePremium
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ManageAccounts
+import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Scale
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.Upload
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.TableChart
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -2170,6 +2184,7 @@ internal fun SettingsTab(
                         SettingsListRow(
                             title = "Acceso completo",
                             subtitle = "Incluido con tu centro o entrenador",
+                            leadingIcon = Icons.Outlined.Verified,
                             showChevron = false,
                             onClick = null
                         )
@@ -2177,6 +2192,7 @@ internal fun SettingsTab(
                     settingsSubs?.snapshot?.grantsProAccess == true -> {
                         SettingsListRow(
                             title = "Repera Pro activo",
+                            leadingIcon = Icons.Outlined.WorkspacePremium,
                             subtitle = buildString {
                                 proStatus?.let { append(it) }
                                 settingsSubs.snapshot.expirationDate?.let { exp ->
@@ -2198,6 +2214,7 @@ internal fun SettingsTab(
                         SettingsListRow(
                             title = "Repera Pro",
                             subtitle = "O vincula un centro para acceso completo",
+                            leadingIcon = Icons.Outlined.WorkspacePremium,
                             trailingIcon = Icons.Outlined.Lock,
                             showChevron = false,
                             onClick = null
@@ -2212,6 +2229,7 @@ internal fun SettingsTab(
                     SettingsListRow(
                         title = "Descubrir Pro",
                         titleBold = true,
+                        leadingIcon = Icons.Outlined.AutoAwesome,
                         showChevron = false,
                         enabled = !busy,
                         onClick = onOpenPro
@@ -2221,6 +2239,7 @@ internal fun SettingsTab(
                     SettingsCardDivider()
                     SettingsListRow(
                         title = "Gestionar suscripción",
+                        leadingIcon = Icons.Outlined.ManageAccounts,
                         showChevron = false,
                         enabled = !busy,
                         onClick = {
@@ -2259,6 +2278,7 @@ internal fun SettingsTab(
                     SettingsCardDivider()
                     SettingsListRow(
                         title = "Restaurar compras",
+                        leadingIcon = Icons.Outlined.Restore,
                         enabled = !busy && !restoreBusy,
                         showChevron = false,
                         onClick = {
@@ -2320,7 +2340,19 @@ internal fun SettingsTab(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("FC máxima", style = MaterialTheme.typography.bodyLarge)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            Icons.Outlined.MonitorHeart,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("FC máxima", style = MaterialTheme.typography.bodyLarge)
+                    }
                     // − valor +; no depende de `busy` (el guardado es optimista).
                     val hrMax = training.heartRateMaxBpm ?: 190
                     val hrReady = overview != null
@@ -2360,12 +2392,14 @@ internal fun SettingsTab(
                 SettingsCardDivider()
                 SettingsListRow(
                     title = "Historial",
+                    leadingIcon = Icons.Outlined.History,
                     enabled = !trainingBusy,
                     onClick = onOpenHistory
                 )
                 SettingsCardDivider()
                 SettingsDropdownPickerRow(
                     label = "Unidad",
+                    leadingIcon = Icons.Outlined.Scale,
                     value = training.weightUnit,
                     options = listOf("kg" to "kg", "lb" to "lb"),
                     enabled = !trainingBusy,
@@ -2374,6 +2408,7 @@ internal fun SettingsTab(
                 SettingsCardDivider()
                 SettingsDropdownPickerRow(
                     label = "Semana empieza",
+                    leadingIcon = Icons.Outlined.CalendarMonth,
                     value = if (training.weekStartsOnMonday) "Lunes" else "Domingo",
                     options = listOf("Lunes" to "monday", "Domingo" to "sunday"),
                     enabled = !trainingBusy,
@@ -2386,6 +2421,7 @@ internal fun SettingsTab(
                 SettingsCardDivider()
                 SettingsDropdownPickerRow(
                     label = "Esfuerzo (registro)",
+                    leadingIcon = Icons.Outlined.Favorite,
                     value = training.effortUnit.uppercase(),
                     options = listOf("RIR" to "rir", "RPE" to "rpe"),
                     enabled = !trainingBusy,
@@ -2398,24 +2434,28 @@ internal fun SettingsTab(
             Column {
                 SettingsTextActionRow(
                     text = "Exportar JSON",
+                    leadingIcon = Icons.Outlined.Upload,
                     enabled = !busy && overview != null,
                     onClick = onExportJson
                 )
                 SettingsCardDivider()
                 SettingsTextActionRow(
                     text = "Importar JSON",
+                    leadingIcon = Icons.Outlined.Download,
                     enabled = !busy && !deletingAccount,
                     onClick = onImportJson
                 )
                 SettingsCardDivider()
                 SettingsTextActionRow(
                     text = "Importar CSV Strong/Hevy",
+                    leadingIcon = Icons.Outlined.TableChart,
                     enabled = !busy && !deletingAccount,
                     onClick = onImportCsv
                 )
                 SettingsCardDivider()
                 SettingsTextActionRow(
                     text = if (deletingAccount) "Eliminando cuenta…" else "Eliminar mi cuenta",
+                    leadingIcon = Icons.Outlined.Delete,
                     enabled = !busy && !deletingAccount,
                     destructive = true,
                     onClick = { confirmDeleteAccount = true },
@@ -2518,13 +2558,15 @@ private fun SettingsDropdownPickerRow(
     value: String,
     options: List<Pair<String, String>>,
     enabled: Boolean,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     // Expansión inline debajo del campo (evita Popup desplazado a la izquierda).
     Column(Modifier.fillMaxWidth()) {
         SettingsListRow(
             title = label,
+            leadingIcon = leadingIcon,
             trailing = value,
             trailingColor = MaterialTheme.colorScheme.primary,
             showChevron = false,

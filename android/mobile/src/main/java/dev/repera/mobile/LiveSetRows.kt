@@ -104,6 +104,9 @@ internal fun CompactSetField(
     submitTitle: String? = null,
     previousLabel: String? = null,
     onSubmitAdvance: (() -> Unit)? = null,
+    /** Si true, «Siguiente» / «Reps →» no cierra el teclado (cadena de foco). */
+    keepKeypadOpenOnAdvance: Boolean = onSubmitAdvance != null,
+    forceKeypadOpen: Boolean = false,
 ) {
     val shape = RoundedCornerShape(10.dp)
     val borderMod = if (focused) {
@@ -112,6 +115,12 @@ internal fun CompactSetField(
     if (useReperaKeypad) {
         var showPad by remember { mutableStateOf(false) }
         var draft by remember { mutableStateOf(value) }
+        LaunchedEffect(forceKeypadOpen) {
+            if (forceKeypadOpen) {
+                draft = value
+                showPad = true
+            }
+        }
         val shown = if (showPad) draft else value
         Box(
             modifier = modifier
@@ -157,8 +166,9 @@ internal fun CompactSetField(
                 previousLabel = previousLabel,
                 onSubmitAdvance = {
                     onSubmitAdvance?.invoke()
-                    showPad = false
+                    if (!keepKeypadOpenOnAdvance) showPad = false
                 },
+                dismissKeepsPadOpen = keepKeypadOpenOnAdvance,
             )
         }
     } else {
@@ -219,6 +229,10 @@ internal fun LiveSetRows(
  val persist=LocalPersistLiveRows.current
  var focusedRow by remember(key) { mutableStateOf(0) }
  var focusedCol by remember(key) { mutableStateOf(if (active.allowsWeight) 0 else 1) }
+ var keypadCellKey by remember(key) { mutableStateOf<Pair<Int, Int>?>(null) }
+ LaunchedEffect(focusedRow, focusedCol) {
+  keypadCellKey = focusedRow to focusedCol
+ }
  fun touch() {edited=true}
  fun maybeStartRest(i: Int) {
   if (rows.getOrNull(i)?.reps?.let { it > 0 } == true) {
@@ -313,6 +327,7 @@ internal fun LiveSetRows(
       },
       modifier = Modifier.weight(1f)
      )
+     val openRepsPad = keypadCellKey == (i to 1)
      CompactSetField(
       value = row.reps.toString(),
       onValueChange = { v ->
@@ -333,11 +348,12 @@ internal fun LiveSetRows(
        else -> "Reps"
       },
       focused = isCurrent && focusedCol == 1,
+      forceKeypadOpen = openRepsPad,
       keypadStep = 1.0,
       submitTitle = if (active.allowsWeight) "Kg →" else null,
       previousLabel = prevLabel.takeIf { it != "—" },
       onSubmitAdvance = if (active.allowsWeight) {
-       { focusedCol = 0; maybeStartRest(i) }
+       { focusedCol = 0 }
       } else {
        { maybeStartRest(i) }
       },
@@ -368,6 +384,7 @@ internal fun LiveSetRows(
         modifier = Modifier.weight(1f)
        )
       } else if (active.allowsWeight) {
+       val openKgPad = keypadCellKey == (i to 0)
        CompactSetField(
         value = row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),
         onValueChange = { v -> rows[i]=LiveRowEdit.weight(rows[i],v); touch() },
@@ -377,9 +394,13 @@ internal fun LiveSetRows(
         allowsDecimal = true,
         fieldLabel = "Kg",
         focused = isCurrent && focusedCol == 0,
+        forceKeypadOpen = openKgPad,
         keypadStep = 2.5,
         submitTitle = "Reps →",
-        onSubmitAdvance = { focusedCol = 1 },
+        onSubmitAdvance = {
+         focusedCol = 1
+         maybeStartRest(i)
+        },
        )
       }
      }
