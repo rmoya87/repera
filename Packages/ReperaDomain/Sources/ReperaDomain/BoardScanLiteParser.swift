@@ -87,8 +87,36 @@ public enum BoardScanLiteParser {
             current = nil
         }
 
-        for line in rawLines {
+        let officialExercises = Self.catalogIndex(catalog)
+        for (lineIndex, line) in rawLines.enumerated() {
             let upper = line.uppercased()
+            // A standalone title followed by "FIND 5 RM" starts a new
+            // strength block, rather than extending the preceding EMOM.
+            if rawLines.indices.contains(lineIndex + 1),
+               rawLines[lineIndex + 1].uppercased().hasPrefix("FIND "),
+               officialExercises[Self.norm(line)] != nil {
+                flush()
+                sectionTitle = line
+                continue
+            }
+            if upper.hasPrefix("FIND "), let title = sectionTitle,
+               let exercise = officialExercises[Self.norm(title)],
+               let reps = Self.capture(#"(?i)FIND\s*(\d+)\s*RM"#, from: line)?.first.flatMap(Int.init) {
+                var strength = RoutineBlock.strength(
+                    title: title + " · " + line,
+                    exercises: [RoutineExercise(
+                        exerciseId: exercise.id,
+                        plannedSets: [PlannedSet(targetReps: reps)]
+                    )]
+                )
+                strength.timeCapMinutes = Self.capture(
+                    #"(?i)TC\s*[:=]?\s*(\d+)"#, from: line
+                )?.first.flatMap(Int.init)
+                strength.wodNotes = title + "\n" + line
+                blocks.append(strength)
+                sectionTitle = nil
+                continue
+            }
             if Self.isSectionLabel(line) {
                 flush()
                 sectionTitle = line
