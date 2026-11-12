@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 THEME = (ROOT / "Apps/Repera/Sources/Theme.swift").read_text(encoding="utf-8")
 WORKOUT = (ROOT / "Apps/Repera/Sources/WorkoutView.swift").read_text(encoding="utf-8")
 HOME = (ROOT / "Apps/Repera/Sources/HomeView.swift").read_text(encoding="utf-8")
-COMPONENTS = (ROOT / "Apps/Repera/Sources/WorkoutUIComponents.swift").read_text(encoding="utf-8")
+COMPONENTS = (ROOT / "Apps/Repera/Sources/Theme.swift").read_text(encoding="utf-8")
 PREVIEW = (ROOT / "Apps/Repera/Sources/SessionPreviewView.swift").read_text(encoding="utf-8")
 PLAN = (ROOT / "Apps/Repera/Sources/PlanView.swift").read_text(encoding="utf-8")
 PICKER = (ROOT / "Apps/Repera/Sources/ExerciseCatalogSearchList.swift").read_text(encoding="utf-8")

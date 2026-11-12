@@ -4,7 +4,7 @@
 
 ## Gestión de entrenamientos — rediseño UI (12/11/2026)
 
-iOS y Android comparten el mismo contrato de producto; componentes nativos por plataforma (`WorkoutUIComponents.swift` / `WorkoutUiComponents.kt`).
+iOS y Android comparten el mismo contrato de producto; componentes nativos por plataforma (`Theme.swift` / `WorkoutUiComponents.kt`: chips, toast Deshacer, resumen de fin).
 
 - **Series / teclado:** `OGSetNumericCell`, `OGSetEntryRow` y `OGReperaNumericKeypad` (Android: `CompactSetField` + `ReperaNumericKeypad`) con borde accent en foco, «Anterior» copiable, paso ± configurable (kg 2,5 · reps 1 · tiempo 15 s), cabecera del pad y tecla de envío con destino («Reps →»). Corrección del foco al pulsar Siguiente (evita concatenar 60→6010).
 - **Play:** cabecera con progreso de series y volumen; ✓ por serie; descanso automático al marcar (−15 / +15 / Saltar); menú «Editar estructura»; cierre con `chevron.down`; hoja resumen antes de guardar (`OGWorkoutFinishSummarySheet`).
