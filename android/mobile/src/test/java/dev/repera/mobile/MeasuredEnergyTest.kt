@@ -13,6 +13,17 @@ class MeasuredEnergyTest {
   assertFalse(SessionReviewSupport.applyMeasuredEnergy(s,"a",300.0,"r1"))
   assertEquals(120.0,s.getJSONArray("workouts").getJSONObject(0).getDouble("appleActiveEnergyKcal"),0.0)
  }
+ @Test fun lateActiveKcalFillsZeroNotWristTotalOrPulse() {
+  val workout=w("a","2026-11-12T07:07:00Z","2026-11-12T07:52:00Z")
+   .put("appleActiveEnergyKcal",0.0).put("wearTotalEnergyKcal",265.0)
+   .put("appleAverageHeartRateBpm",103.0)
+  val state=state(workout)
+  assertTrue(SessionReviewSupport.applyMeasuredEnergy(state,"a",219.0,"watch"))
+  assertEquals(219.0,workout.getDouble("appleActiveEnergyKcal"),0.0)
+  assertEquals(265.0,workout.getDouble("wearTotalEnergyKcal"),0.0)
+  assertEquals(103.0,workout.getDouble("appleAverageHeartRateBpm"),0.0)
+  assertFalse(SessionReviewSupport.applyMeasuredEnergy(state,"a",221.0,"phone"))
+ }
  @Test fun ignoresMissingNonPositiveAndUnknownSession() {
   val s=state(w("a","2026-01-01T10:00:00Z","2026-01-01T11:00:00Z"))
   assertFalse(SessionReviewSupport.applyMeasuredEnergy(s,"a",null,"r1"))

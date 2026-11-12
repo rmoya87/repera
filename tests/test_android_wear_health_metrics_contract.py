@@ -133,6 +133,30 @@ class WearHealthMetricContracts(unittest.TestCase):
         domain = read("android/domain/src/main/java/dev/repera/domain/WearMeasuredEnergy.kt")
         self.assertIn("kcal?.takeIf { it.isFinite() && it > 0.0 }", domain)
 
+    def test_late_active_kcal_android_read_only_and_watch_priority(self):
+        main = read("android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt")
+        reader = read("android/mobile/src/main/java/dev/repera/mobile/HealthConnectReader.kt")
+        repo = read("android/mobile/src/main/java/dev/repera/mobile/WorkoutRepository.kt")
+        support = read("android/mobile/src/main/java/dev/repera/mobile/SessionReviewSupport.kt")
+        self.assertIn("recoverMissingHealthEnergy()", main)
+        self.assertIn("recoverMissingHealthEnergy(force = true)", main)
+        recovery = main.split("private fun recoverMissingHealthEnergy(", 1)[1].split(
+            "private fun launchHealthPermissionsForCurrentAccount", 1)[0]
+        self.assertIn("readVerifiedSessionActiveEnergy(", recovery)
+        self.assertIn("applyReconciledHealthEnergy(", recovery)
+        self.assertNotIn("syncFinishedSession(", recovery)
+        self.assertNotIn("refineSessionReviewWithCardio(", recovery)
+        energy = reader.split("suspend fun readVerifiedSessionActiveEnergy(", 1)[1].split(
+            "/** Pasos y distancia", 1)[0]
+        self.assertIn("ActiveCaloriesBurnedRecord::class", energy)
+        self.assertIn("it.metadata.dataOrigin.packageName == matched.packageName", energy)
+        self.assertIn("SessionHealthMatcher.associate(", energy)
+        self.assertIn("Association.Ambiguous -> return null", energy)
+        self.assertNotIn("TotalCaloriesBurnedRecord::class", energy)
+        self.assertIn("finishedSessionIdsMissingActiveEnergy()", repo)
+        self.assertIn("SessionReviewSupport.applyMeasuredEnergy(", repo)
+        self.assertIn("if (currentKcal.isFinite() && currentKcal > 0) return false", support)
+
     def test_companion_flush_metrics_before_stop_and_durable_commands(self):
         """Paridad Apple: no perder kcal al pasar a revisión; comandos sin nodos."""
         wear = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")

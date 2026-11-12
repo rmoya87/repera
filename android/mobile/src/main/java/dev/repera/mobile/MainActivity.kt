@@ -724,6 +724,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         if (HealthConnectReader.hasReadablePermission(granted)) {
             loadHealthToday()
             repairPastHealthConnectExports()
+            recoverMissingHealthEnergy(force = true)
         } else {
             // No volcar denegación a `status` global (aparecía en rojo en Crear).
             todayHealth = null
@@ -862,6 +863,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 sessionStore.load()?.expiresWithin(SESSION_REFRESH_MARGIN_SECONDS) == true
             if ((verifiedSupabase == null || needsRenewal) && !busy && !restoringSession) restoreStoredSession()
             refreshCatalogSilently(user.uniqueId);refreshHealthAccess()
+            recoverMissingHealthEnergy()
         }
     }
 
@@ -2727,6 +2729,73 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    // Reintenta kcal activas tardías en lotes en primer plano. No escribe HC
+    // ni altera FC, notas, entrenamiento o kcal TOTAL del reloj.
+    private var energyRecoveryInFlight = false
+    private var lastEnergyRecoveryAtMillis = 0L
+    private var energyRecoveryCursor = 0
+    private var energyRecoveryOwner: String? = null
+
+    private fun recoverMissingHealthEnergy(force: Boolean = false) {
+        val owner = profile?.uniqueId ?: return
+        val revision = centerGate.revision
+        fun current() = profile?.uniqueId == owner && centerGate.revision == revision
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (energyRecoveryInFlight ||
+            (!force && lastEnergyRecoveryAtMillis != 0L &&
+                now - lastEnergyRecoveryAtMillis < 10 * 60_000L)) return
+        energyRecoveryInFlight = true
+        lastEnergyRecoveryAtMillis = now
+        lifecycleScope.launch {
+            try {
+                val changed = withContext(Dispatchers.IO) {
+                    val reader = HealthConnectReader(this@MainActivity)
+                    if (!reader.available() || !reader.hasPermissions() || !current())
+                        return@withContext false
+                    val repo = WorkoutRepository(this@MainActivity, owner)
+                    val pending = repo.finishedSessionIdsMissingActiveEnergy()
+                    if (pending.isEmpty()) return@withContext false
+                    if (energyRecoveryOwner != owner) {
+                        energyRecoveryOwner = owner
+                        energyRecoveryCursor = 0
+                    }
+                    val start = energyRecoveryCursor % pending.size
+                    val ids = (0 until minOf(16, pending.size)).map {
+                        pending[(start + it) % pending.size]
+                    }
+                    energyRecoveryCursor = (start + ids.size) % pending.size
+                    var updated = false
+                    for (id in ids) {
+                        if (!current()) break
+                        val range = repo.sessionTimeRange(id) ?: continue
+                        val measured = try {
+                            reader.readVerifiedSessionActiveEnergy(
+                                sessionId = id, startEpochMs = range.first,
+                                endEpochMs = range.second, linkedRecordId = repo.healthRecordId(id),
+                                editedWindow = repo.sessionHasEditedDuration(id)
+                            )
+                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            null
+                        } ?: continue
+                        if (current()) updated = repo.applyReconciledHealthEnergy(
+                            id, measured.kcal, measured.recordId
+                        ) || updated
+                    }
+                    updated
+                }
+                if (changed && current()) reloadFor(owner)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Salud podrá sincronizar al volver a primer plano.
+            } finally {
+                energyRecoveryInFlight = false
+            }
+        }
+    }
+
     private fun launchHealthPermissionsForCurrentAccount() {
         val owner=profile?.uniqueId ?: return
         val revision=centerGate.revision
@@ -2846,6 +2915,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 if(!current()) return@launch
                 if (samples != null) healthFetchDaysLoaded = fetchDays
                 reloadFor(owner);status=null
+                recoverMissingHealthEnergy()
             } catch(error:Exception) {
                 if(current()) {todayHealth=null;status="No se pudo leer Salud: "+error.localizedMessage}
             } finally {

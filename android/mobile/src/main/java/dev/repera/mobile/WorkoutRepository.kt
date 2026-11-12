@@ -3929,6 +3929,38 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return null
     }
 
+    /** Historial sin kcal activas medidas (paginado por MainActivity). */
+    @Synchronized fun finishedSessionIdsMissingActiveEnergy(): List<String> {
+        val archive = loadOrNull()?.optJSONArray("workouts") ?: return emptyList()
+        return (0 until archive.length()).mapNotNull { i ->
+            val session = archive.optJSONObject(i) ?: return@mapNotNull null
+            if (session.optString("phase") != "finished" ||
+                (session.has("timerDetails") && !session.isNull("timerDetails")))
+                return@mapNotNull null
+            val kcal = session.optDouble("appleActiveEnergyKcal", Double.NaN)
+            if (kcal.isFinite() && kcal > 0) return@mapNotNull null
+            val start = runCatching {
+                java.time.Instant.parse(session.getString("startedAt"))
+            }.getOrNull() ?: return@mapNotNull null
+            val end = runCatching {
+                java.time.Instant.parse(session.getString("finishedAt"))
+            }.getOrNull() ?: return@mapNotNull null
+            if (end <= start) return@mapNotNull null
+            end.toEpochMilli() to session.optString("id").takeIf { it.isNotBlank() }
+        }.filter { it.second != null }.sortedByDescending { it.first }.mapNotNull { it.second }
+    }
+
+    /** Graba solo kcal activas ligadas a una sesión HC sin tocar otras métricas. */
+    @Synchronized fun applyReconciledHealthEnergy(
+        sessionId: String, kcal: Double, recordId: String
+    ): Boolean {
+        val state = loadOrNull() ?: return false
+        if (!SessionReviewSupport.applyMeasuredEnergy(state, sessionId, kcal, recordId))
+            return false
+        save(state)
+        return true
+    }
+
     /** Afina la nota con la muestra de Salud (refineSessionReviewWithHealth
      *  iOS): se aplica tras terminar, cuando la lectura de Salud llega. */
     @Synchronized fun refineSessionReviewWithCardio(

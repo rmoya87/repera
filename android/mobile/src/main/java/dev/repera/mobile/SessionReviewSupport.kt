@@ -69,7 +69,8 @@ object SessionReviewSupport {
         for (i in 0 until archive.length()) {
             val session = archive.optJSONObject(i) ?: continue
             if (session.optString("id") != sessionId) continue
-            if (session.has("appleActiveEnergyKcal") && !session.isNull("appleActiveEnergyKcal")) return false
+            val currentKcal = session.optDouble("appleActiveEnergyKcal", Double.NaN)
+            if (currentKcal.isFinite() && currentKcal > 0) return false
             // The matcher compares one local session with Health candidates only; it does
             // not prove that no other local session matched the same record. Skip rather
             // than risk counting the same energy twice: no times or any time overlap

@@ -475,6 +475,52 @@ class HealthConnectReader(private val context: Context) {
         )
     }
 
+    /** Lectura tardía de kcal ACTIVAS verificadas del proveedor del workout;
+     *  no convertir CALORIES_TOTAL (activa + basal) del reloj. */
+    data class VerifiedActiveEnergy(val recordId: String, val kcal: Double)
+
+    suspend fun readVerifiedSessionActiveEnergy(
+        sessionId: String, startEpochMs: Long, endEpochMs: Long,
+        linkedRecordId: String?, editedWindow: Boolean
+    ): VerifiedActiveEnergy? {
+        if (!available() || endEpochMs <= startEpochMs) return null
+        if (editedWindow && linkedRecordId.isNullOrBlank()) return null
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        if (HealthPermission.getReadPermission(ExerciseSessionRecord::class) !in granted ||
+            HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class) !in granted) return null
+        val stored = matchedSession(sessionId, startEpochMs, endEpochMs, linkedRecordId)
+        // Si el registro vinculado era la ficha propia del teléfono, una
+        // sesión externa inequívoca del reloj prevalece (ambigüedad => sin kcal).
+        val matched = if (!editedWindow && stored?.packageName == context.packageName) {
+            val external = readSessionCandidates(startEpochMs, endEpochMs)
+                .filter { it.packageName != context.packageName }
+            when (val result = dev.repera.domain.SessionHealthMatcher.associate(
+                startEpochMs, endEpochMs, external, context.packageName
+            )) {
+                is dev.repera.domain.SessionHealthMatcher.Association.Matched -> result.session
+                dev.repera.domain.SessionHealthMatcher.Association.Ambiguous -> return null
+                dev.repera.domain.SessionHealthMatcher.Association.None -> stored
+            }
+        } else stored
+        matched ?: return null
+        val sameMinute = startEpochMs / 60_000L == matched.startEpochMs / 60_000L &&
+            endEpochMs / 60_000L == matched.endEpochMs / 60_000L
+        val from = if (editedWindow && !sameMinute) startEpochMs else matched.startEpochMs
+        val until = if (editedWindow && !sameMinute) endEpochMs else matched.endEpochMs
+        if (until <= from) return null
+        val records = client.readAllRecords(
+            ActiveCaloriesBurnedRecord::class,
+            TimeRangeFilter.between(Instant.ofEpochMilli(from), Instant.ofEpochMilli(until))
+        )
+        val kcal = records.filter {
+            it.metadata.dataOrigin.packageName == matched.packageName &&
+                it.startTime.toEpochMilli() >= from && it.endTime.toEpochMilli() <= until
+        }.sumOf { it.energy.inKilocalories }.takeIf { it.isFinite() && it > 0 }
+            ?: return null
+        return VerifiedActiveEnergy(matched.id, kcal)
+    }
+
     /** Pasos y distancia de la sesión de Salud asociada (reglas de asociación idénticas a readSessionSample:
      *  sin asociación o ambigua no se lee nada). «Asociado» = mismo origen que la sesión asociada dentro de su rango;
      *  si no hay muestras de ese origen, solo se usa la ventana cuando UN ÚNICO origen aporta datos en el rango (`usesTimeWindow=true`); con varios orígenes no se suma ni se elige: sin dato (fail-closed).

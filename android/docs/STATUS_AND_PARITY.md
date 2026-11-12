@@ -1,5 +1,12 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
+## Recuperación de kcal activas de Health Connect (12/11/2026)
+
+- Android vuelve a consultar por lotes las kcal activas que faltan en sesiones terminadas al entrar en primer plano o cargar Salud. Solo persiste energía del proveedor de un ExerciseSessionRecord inequívoco; no modifica frecuencia cardíaca, notas ni los registros de Health Connect.
+- Prioridad del reloj: una sesión externa inequívoca prevalece sobre la ficha del móvil. Si hay ambigüedad se conserva «—». Las kcal TOTALES de Wear OS nunca se convierten en ACTIVAS: son métricas distintas. Datos históricos externos más antiguos de 30 días requieren autorización de lectura histórica en versiones compatibles.
+- Contratos y tests JVM añadidos; pendiente prueba en hardware real.
+
+
 ## Corrección del runner de Wear OS 5.1 (04/11/2026)
 
 El job **Wear integration tests on Wear OS images (API 35)** del run
