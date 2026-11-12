@@ -204,3 +204,14 @@ a Supabase; el catálogo editorial sí continúa actualizándose remotamente.
 Las variantes de máquina genérica («10/8 CAL») siguen requiriendo revisión
 del aparato cuando la pizarra no especifica el ergómetro: no inferir el
 material sin evidencia.
+
+### Puerta de consistencia Apple Intelligence
+
+El flujo iOS mantiene el análisis local incluso cuando Foundation Models
+está disponible. La propuesta generativa solo se utiliza si respeta el
+número, clase y orden de bloques, las rondas, los tiempos e intervalos
+explícitos y el número de movimientos detectados. Se rechazan movimientos
+inventados a partir de títulos («Warm Up», «Metcon») y enlaces de vídeo.
+En caso de divergencia se muestra el plan local determinista, sin esperar
+una segunda descarga. El control está cubierto por
+BoardScanAIResultGuardTests.swift.
