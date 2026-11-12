@@ -330,7 +330,8 @@ object BoardScanLiteParser {
         if(listOf("CAP: 4 INTERVALOS","REALIZA AMBOS","NO TOUCH","RETOMA ",
                   "CONTINUA ","CONTINÚA ","MAX ROUNDS OF").any{upper.startsWith(it)} ||
            upper.contains("I GO YOU GO") || upper.contains("YOU GO I GO")) return true
-        if(Regex("""^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?|ROUNDS?\s+\d+)\b""").containsMatchIn(upper)) return true
+        if(!upper.contains("FOR TIME") && !upper.contains("RFQ") &&
+           Regex("""^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?|ROUNDS?\s+\d+)\b""").containsMatchIn(upper)) return true
         if(Regex("""^\d+(?:\s*[-–]\s*\d+){2,}\s*$""").matches(upper)) return true
         if((raw.startsWith("*") || raw.startsWith("•")) &&
            !Regex("""^[*•]\s*\d+\s*(?:M\b|CAL\b|[A-Z])""",RegexOption.IGNORE_CASE).containsMatchIn(raw)) return true
