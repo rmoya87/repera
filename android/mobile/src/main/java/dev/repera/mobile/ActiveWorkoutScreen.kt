@@ -20,7 +20,9 @@ import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import androidx.compose.material3.SnackbarHostState
+import kotlinx.coroutines.launch
 
 /** Dedicated workout route, not the dashboard above an off-screen active card. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,7 +50,11 @@ internal fun ActiveWorkoutScreen(
     onLogSet:(Int,Double?,Double?,Boolean,String?,Int?,Int?,Boolean)->Unit,
     onLogDropSet:(Int,Double?,List<Pair<Int,Double?>>,Double?,Boolean)->Unit,
     onLogRestPauseSet:(List<Pair<Int,Int>>,Double?,Double?,Boolean)->Unit,
-    onReviseSet:(String,Int,Double?,String?,Int?,Int?)->Unit,onDeleteSet:(String)->Unit,
+    onReviseSet:(String,Int,Double?,String?,Int?,Int?)->Unit,
+    onDeleteSet:(String)->Unit,
+    onRestoreDeletedSet:(WorkoutSetSummary,Int)->Unit={ _,_->},
+    onRemovePendingSet:(String)->Unit={},
+    onRestorePendingSet:(PendingSetSummary,Int)->Unit={ _,_->},
     onNext:()->Unit,onFinish:()->Unit,onDiscard:()->Unit,onOpenClock:()->Unit,onBack:()->Unit,
     pin:dev.repera.domain.WorkoutLocationPin?,accountId:String,
     onPinChange:(dev.repera.domain.WorkoutLocationPin?)->Unit,
@@ -242,6 +250,36 @@ internal fun ActiveWorkoutScreen(
     var notesDraft by remember(workout.id, workout.notes) {
         mutableStateOf(workout.notes.orEmpty())
     }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    fun offerUndo(message: String, undo: () -> Unit) {
+        snackbarScope.launch {
+            showWorkoutUndoSnackbar(snackbarHostState, message, undo)
+        }
+    }
+    val deleteSetWithUndo: (String) -> Unit = { id ->
+        val idx = workout.sets.indexOfFirst { it.id == id }
+        val snap = workout.sets.getOrNull(idx)
+        onDeleteSet(id)
+        if (snap != null && idx >= 0) {
+            offerUndo("Serie ${idx + 1} eliminada") {
+                onRestoreDeletedSet(snap, idx)
+            }
+        }
+    }
+    val removePendingWithUndo: (String) -> Unit = { id ->
+        val idx = workout.pendingSets.indexOfFirst { it.id == id }
+        val snap = workout.pendingSets.getOrNull(idx)
+        onRemovePendingSet(id)
+        if (snap != null && idx >= 0) {
+            val label = workout.sets.size + idx + 1
+            offerUndo("Serie $label eliminada") {
+                onRestorePendingSet(snap, idx)
+            }
+        }
+    }
+    Box(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalRemovePendingSet provides removePendingWithUndo) {
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
         contentPadding=reperaScrollContentPadding(extraBottom = 16.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -419,7 +457,7 @@ internal fun ActiveWorkoutScreen(
                                 active = workout, busy = busy, onLogSet = onLogSet,
                                 onLogDropSet = onLogDropSet,
                                 onLogRestPauseSet = onLogRestPauseSet,
-                                onReviseSet = onReviseSet, onDeleteSet = onDeleteSet,
+                                onReviseSet = onReviseSet, onDeleteSet = deleteSetWithUndo,
                                 onNext = onNext, onFinish = onFinish, onDiscard = onDiscard,
                                 embedded = true
                             )
@@ -469,6 +507,12 @@ internal fun ActiveWorkoutScreen(
                 )
             }
         }
+    }
+    }
+        WorkoutUndoSnackbarHost(
+            snackbarHostState,
+            Modifier.align(Alignment.BottomCenter).padding(16.dp)
+        )
     }
 }
 

@@ -35,6 +35,13 @@ ANDROID_HOME = (
 ANDROID_EDITOR = (
     ROOT / "android/mobile/src/main/java/dev/repera/mobile/RoutineBlocksEditor.kt"
 ).read_text(encoding="utf-8")
+ANDROID_PLAY = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/ActiveWorkoutScreen.kt"
+).read_text(encoding="utf-8")
+WORKOUT_IOS = (ROOT / "Apps/Repera/Sources/WorkoutView.swift").read_text(encoding="utf-8")
+REPO = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/WorkoutRepository.kt"
+).read_text(encoding="utf-8")
 
 
 class WorkoutUiRedesignContract(unittest.TestCase):
@@ -132,6 +139,18 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("ConfirmDeleteMultiExerciseBlockDialog", ANDROID_UI)
         self.assertIn("nonRestExerciseCount", ANDROID_EDITOR)
         self.assertIn("cloneForUndo", ANDROID_EDITOR)
+        self.assertIn("WorkoutUndoSnackbarHost", ANDROID_PLAY)
+        self.assertIn("deleteSetWithUndo", ANDROID_PLAY)
+        self.assertIn("restoreDeletedSet", REPO)
+        self.assertIn("restorePendingSet", REPO)
+        self.assertIn("ogUndoToast($undoToast)", WORKOUT_IOS)
+        self.assertIn("presentPlayUndoToast", WORKOUT_IOS)
+        self.assertIn("playBlockDeleteConfirmID", WORKOUT_IOS)
+        self.assertIn("onUndoSetDelete", WORKOUT_IOS)
+        wod_editor = PLAN.split("struct WODMovementEditor", 1)[1][:20000]
+        self.assertIn("ogUndoToast($undoToast)", wod_editor)
+        self.assertIn("presentUndoToast", wod_editor)
+        self.assertIn("eliminada", wod_editor)
 
 
 if __name__ == "__main__":

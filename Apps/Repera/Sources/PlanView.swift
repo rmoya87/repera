@@ -2947,6 +2947,7 @@ private struct InlineWODMovementSets: View {
 /// Editor de movimiento WOD alineado con Apuntar: series según estilo (kg / tiempo / reps).
 struct WODMovementEditor: View {
     @State private var openedSetID: UUID?
+    @State private var undoToast: OGUndoToastState?
     @Environment(ReperaStore.self) private var store
     @Binding var movement: WODMovement
     /// Bloque padre para derivar las mismas series que Empezar/Apuntar.
@@ -3109,10 +3110,21 @@ struct WODMovementEditor: View {
         }
         .ogListChrome()
         .ogScrollingTitleNav()
+        .ogUndoToast($undoToast)
         .onAppear {
             seedSetsIfNeeded()
             maleWeightDraft = movement.weightMaleKg.map { ReperaNumberFormat.decimal($0) } ?? ""
             femaleWeightDraft = movement.weightFemaleKg.map { ReperaNumberFormat.decimal($0) } ?? ""
+        }
+    }
+
+    private func presentUndoToast(message: String, undo: @escaping () -> Void) {
+        undoToast = OGUndoToastState(message: message, undo: undo)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if undoToast?.message == message {
+                undoToast = nil
+            }
         }
     }
 
@@ -3243,8 +3255,14 @@ struct WODMovementEditor: View {
 
     private func removeSet(at index: Int) {
         guard draftSets.count > 1, draftSets.indices.contains(index) else { return }
+        let removed = draftSets[index]
         draftSets.remove(at: index)
         writeSetsToMovement()
+        presentUndoToast(message: "Serie \(index + 1) eliminada") {
+            let insertAt = min(index, draftSets.count)
+            draftSets.insert(removed, at: insertAt)
+            writeSetsToMovement()
+        }
     }
 
     private func applyMovementWeightToEmptySets() {

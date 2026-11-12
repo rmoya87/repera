@@ -51,6 +51,8 @@ struct WorkoutView: View {
     @State private var showFinishSummary = false
     @State private var createFreeMovementForBlock: UUID?
     @State private var openedSetID: UUID?
+    @State private var undoToast: OGUndoToastState?
+    @State private var playBlockDeleteConfirmID: UUID?
     @State private var notesDraft = ""
     @State private var favoriteSaveError: String?
     @State private var isSavingFavorite = false
@@ -238,6 +240,27 @@ struct WorkoutView: View {
                 },
                 onCancel: { confirmCancelWorkout = false }
             )
+        }
+        .ogUndoToast($undoToast)
+        .confirmationDialog(
+            "¿Eliminar este bloque?",
+            isPresented: Binding(
+                get: { playBlockDeleteConfirmID != nil },
+                set: { if !$0 { playBlockDeleteConfirmID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Eliminar bloque", role: .destructive) {
+                if let id = playBlockDeleteConfirmID {
+                    removePlayBlock(id)
+                }
+                playBlockDeleteConfirmID = nil
+            }
+            Button("Cancelar", role: .cancel) {
+                playBlockDeleteConfirmID = nil
+            }
+        } message: {
+            Text("Se eliminarán todos los ejercicios del bloque.")
         }
         .sheet(isPresented: $showFinishSummary) {
             if let session = store.state.activeSession {
@@ -1133,6 +1156,20 @@ struct WorkoutView: View {
         }
     }
 
+    private func playBlockExerciseCount(_ block: WorkoutBlockEntry, session: WorkoutSession) -> Int {
+        block.indexes.count
+    }
+
+    private func presentPlayUndoToast(message: String, undo: @escaping () -> Void) {
+        undoToast = OGUndoToastState(message: message, undo: undo)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if undoToast?.message == message {
+                undoToast = nil
+            }
+        }
+    }
+
     private func removePlayBlock(_ blockID: UUID) {
         mutatePlayRoutine { routine in
             let remaining = routine.blocks.filter { $0.id != blockID }
@@ -1160,12 +1197,40 @@ struct WorkoutView: View {
     }
 
     private func removePlayExercise(_ blockID: UUID, itemID: UUID) {
+        var removedExercise: RoutineExercise?
+        var removedMovement: WODMovement?
+        var insertAt = 0
+        var blockIndex = 0
         mutatePlayRoutine { routine in
             guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+            blockIndex = index
             if routine.blocks[index].kind == .strength {
-                routine.blocks[index].exercises.removeAll { $0.id == itemID }
+                guard let exIndex = routine.blocks[index].exercises.firstIndex(where: { $0.id == itemID }) else { return }
+                removedExercise = routine.blocks[index].exercises[exIndex]
+                insertAt = exIndex
+                routine.blocks[index].exercises.remove(at: exIndex)
             } else {
-                routine.blocks[index].movements.removeAll { $0.id == itemID }
+                guard let mvIndex = routine.blocks[index].movements.firstIndex(where: { $0.id == itemID }) else { return }
+                removedMovement = routine.blocks[index].movements[mvIndex]
+                insertAt = mvIndex
+                routine.blocks[index].movements.remove(at: mvIndex)
+            }
+        }
+        if let removed = removedExercise {
+            presentPlayUndoToast(message: "Ejercicio eliminado") {
+                mutatePlayRoutine { routine in
+                    guard routine.blocks.indices.contains(blockIndex) else { return }
+                    let at = min(insertAt, routine.blocks[blockIndex].exercises.count)
+                    routine.blocks[blockIndex].exercises.insert(removed, at: at)
+                }
+            }
+        } else if let removed = removedMovement {
+            presentPlayUndoToast(message: "Ejercicio eliminado") {
+                mutatePlayRoutine { routine in
+                    guard routine.blocks.indices.contains(blockIndex) else { return }
+                    let at = min(insertAt, routine.blocks[blockIndex].movements.count)
+                    routine.blocks[blockIndex].movements.insert(removed, at: at)
+                }
             }
         }
     }
@@ -1371,7 +1436,11 @@ struct WorkoutView: View {
                 }
                 Divider()
                 Button("Eliminar bloque", systemImage: "trash", role: .destructive) {
-                    removePlayBlock(block.id)
+                    if playBlockExerciseCount(block, session: session) > 1 {
+                        playBlockDeleteConfirmID = block.id
+                    } else {
+                        removePlayBlock(block.id)
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis")
@@ -1465,6 +1534,9 @@ struct WorkoutView: View {
                 exerciseEntry: entry,
                 registerFlusher: { playSetsFlusher = $0 },
                 openedSetID: $openedSetID,
+                onUndoSetDelete: { message, undo in
+                    presentPlayUndoToast(message: message, undo: undo)
+                },
                 onSetMarkedComplete: {
                     let rest = entry.restSeconds ?? store.state.settings.defaultRestSeconds
                     if shouldStartIndependentRest(for: entry) {
@@ -3284,6 +3356,7 @@ private struct PlayEditableSetsView: View {
     @Environment(ReperaStore.self) private var store
     let exerciseEntry: SessionExercise
     var registerFlusher: ((@escaping () -> Void) -> Void)? = nil
+    var onUndoSetDelete: ((String, @escaping () -> Void) -> Void)? = nil
     var onSetMarkedComplete: (() -> Void)? = nil
 
     private struct Row: Identifiable {
@@ -3308,10 +3381,12 @@ private struct PlayEditableSetsView: View {
         exerciseEntry: SessionExercise,
         registerFlusher: ((@escaping () -> Void) -> Void)? = nil,
         openedSetID: Binding<UUID?>,
+        onUndoSetDelete: ((String, @escaping () -> Void) -> Void)? = nil,
         onSetMarkedComplete: (() -> Void)? = nil
     ) {
         self.exerciseEntry = exerciseEntry
         self.registerFlusher = registerFlusher
+        self.onUndoSetDelete = onUndoSetDelete
         self.onSetMarkedComplete = onSetMarkedComplete
         _openedSetID = openedSetID
         // Filas desde el 1.er frame: sembrar en onAppear hacía saltar la altura del List.
@@ -3392,8 +3467,14 @@ private struct PlayEditableSetsView: View {
                     openedSetID: $openedSetID,
                     onDelete: {
                         guard rows.indices.contains(index) else { return }
+                        let removed = rows[index]
                         rows.remove(at: index)
                         schedulePersist(immediate: true)
+                        onUndoSetDelete?("Serie \(index + 1) eliminada") {
+                            let insertAt = min(index, rows.count)
+                            rows.insert(removed, at: insertAt)
+                            schedulePersist(immediate: true)
+                        }
                     }
                 ) {
                     rowEditor(index: index, row: row)

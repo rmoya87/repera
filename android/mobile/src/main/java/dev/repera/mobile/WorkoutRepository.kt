@@ -2533,6 +2533,77 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return true
     }
 
+    private fun recomputeWorkLoggedReps(exercise: JSONObject) {
+        val kept = exercise.getJSONArray("loggedSets")
+        val work = (0 until kept.length()).sumOf { n ->
+            val set = kept.getJSONObject(n)
+            if (set.optString("phase", "work") == "warmup") 0 else {
+                set.optInt("reps") + (set.optJSONArray("drops")?.let { drops ->
+                    (0 until drops.length()).sumOf { drops.getJSONObject(it).optInt("reps") }
+                } ?: 0)
+            }
+        }
+        exercise.put("completedReps", work)
+    }
+
+    /** Reinserta una serie registrada (paridad toast/snackbar Deshacer en Play). */
+    @Synchronized fun restoreDeletedSet(summary: WorkoutSetSummary, insertIndex: Int): ActiveWorkout {
+        val state = requireState()
+        val session = requireActive(state)
+        val exercise = session.getJSONArray("exercises").getJSONObject(session.getInt("currentIndex"))
+        check(exercise.optString("blockKind") != "wod") { "Usa el editor WOD para estos movimientos" }
+        val logged = exercise.getJSONArray("loggedSets")
+        val at = insertIndex.coerceIn(0, logged.length())
+        val obj = JSONObject().apply {
+            put("id", summary.id)
+            put("reps", summary.reps)
+            put("phase", summary.phase)
+            put("kind", "straight")
+            put("quantityUnit", summary.unit)
+            put("toFailure", summary.toFailure)
+            put("drops", JSONArray())
+            put("clusters", JSONArray())
+            summary.weightKg?.let { put("weightKg", it) }
+            summary.rir?.let { put("rir", it) }
+            summary.durationSeconds?.let { put("durationSeconds", it) }
+            summary.deficitCm?.let { put("deficitCm", it) }
+            put("completedAt", nowISO8601())
+        }
+        val newLogged = JSONArray()
+        for (i in 0 until logged.length()) {
+            if (i == at) newLogged.put(obj)
+            newLogged.put(logged.getJSONObject(i))
+        }
+        if (at == logged.length()) newLogged.put(obj)
+        exercise.put("loggedSets", newLogged)
+        recomputeWorkLoggedReps(exercise)
+        save(state)
+        return summarize(session)
+    }
+
+    /** Reinserta una serie planificada pendiente quitada en Play. */
+    @Synchronized fun restorePendingSet(summary: PendingSetSummary, insertIndex: Int): ActiveWorkout {
+        val state = requireState()
+        val session = requireActive(state)
+        val exercise = session.getJSONArray("exercises").getJSONObject(session.getInt("currentIndex"))
+        check(exercise.optString("blockKind") != "wod") { "Usa el editor WOD para estos movimientos" }
+        val planned = exercise.optJSONArray("plannedSets") ?: JSONArray().also {
+            exercise.put("plannedSets", it)
+        }
+        val at = insertIndex.coerceIn(0, planned.length())
+        val obj = JSONObject().put("id", summary.id).put("targetReps", summary.reps)
+        summary.weightKg?.let { obj.put("targetWeightKg", it) }
+        val newPlan = JSONArray()
+        for (i in 0 until planned.length()) {
+            if (i == at) newPlan.put(obj)
+            newPlan.put(planned.getJSONObject(i))
+        }
+        if (at == planned.length()) newPlan.put(obj)
+        exercise.put("plannedSets", newPlan)
+        save(state)
+        return summarize(session)
+    }
+
     /** Undo a saved strength set without changing the identity or timestamp of any other set. */
     @Synchronized fun deleteCurrentSet(setId: String): ActiveWorkout {
         val state = requireState()
@@ -2552,15 +2623,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         check(removed) { "Serie no encontrada" }
         exercise.put("loggedSets", kept)
-        val work = (0 until kept.length()).sumOf { n ->
-            val set = kept.getJSONObject(n)
-            if (set.optString("phase", "work") == "warmup") 0 else {
-                set.optInt("reps") + (set.optJSONArray("drops")?.let { drops ->
-                    (0 until drops.length()).sumOf { drops.getJSONObject(it).optInt("reps") }
-                } ?: 0)
-            }
-        }
-        exercise.put("completedReps", work)
+        recomputeWorkLoggedReps(exercise)
         save(state)
         return summarize(session)
     }
