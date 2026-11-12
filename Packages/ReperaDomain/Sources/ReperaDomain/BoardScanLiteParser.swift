@@ -557,6 +557,51 @@ public enum BoardScanLiteParser {
         _ header: String, _ lines: [String], interval: Int?,
         cap: Int?, rounds: Int?, catalog: [Exercise]
     ) -> RoutineBlock? {
+        // Generic 1RM progressions: a named movement in the section title and
+        // per-set ranges in the body. Percent *ranges* stay in original notes;
+        // they must not silently become an exact percentage.
+        if header.uppercased().contains("1RM"),
+           let quoted = header.range(of: #""[^"]+""#, options: .regularExpression) {
+            let rawName = String(header[quoted])
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                .replacingOccurrences(of: #"(?i)\s*1\s*RM.*$"#, with: "",
+                                      options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let index = catalogIndex(catalog)
+            let canonical = CrossFitGlossary.canonicalName(for: rawName)
+            let exercise = index[norm(rawName)] ?? index[norm(canonical)] ??
+                (norm(rawName) == norm("Squat Clean") ? index[norm("Clean")] : nil)
+            if let exercise {
+                var perSet: [Int: PlannedSet] = [:]
+                for line in lines {
+                    guard let captures = capture(
+                        #"(?i)^SETS?\s*(\d+)\s*[-–]\s*(\d+)\s*:\s*(\d+)\s+REPS?\b"#,
+                        from: line
+                    ), captures.count == 3,
+                       let start = Int(captures[0]), let end = Int(captures[1]),
+                       let reps = Int(captures[2]), start >= 1, end <= 50,
+                       start <= end, reps > 0 else { continue }
+                    for setIndex in start...end {
+                        perSet[setIndex] = PlannedSet(targetReps: reps)
+                    }
+                }
+                let expected = rounds ?? perSet.count
+                if expected > 0 && expected <= 50 && perSet.count == expected {
+                    let sets = (1...expected).compactMap { perSet[$0] }
+                    if sets.count == expected {
+                        var block = RoutineBlock.strength(
+                            title: header, exercises: [
+                                RoutineExercise(exerciseId: exercise.id, plannedSets: sets)
+                            ]
+                        )
+                        block.emomIntervalSeconds = interval
+                        block.timeCapMinutes = cap
+                        block.wodNotes = ([header] + lines).joined(separator: "\n")
+                        return block
+                    }
+                }
+            }
+        }
         let name = CrossFitGlossary.normalize
         if lines.contains(where: { $0.uppercased().contains("SQUAT SNATCH") && $0.uppercased().contains("SETS") }) {
             var plan: [Int: PlannedSet] = [:]
