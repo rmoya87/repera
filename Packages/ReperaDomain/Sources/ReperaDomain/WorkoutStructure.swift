@@ -2,7 +2,7 @@ import Foundation
 
 /// Additional semantics of an existing workout block. This is NOT another
 /// WODFormat: AMRAP, For Time, EMOM, etc. remain stable for old plans/players.
-public enum WorkoutSection: String, Codable, Sendable, Hashable {
+public enum WorkoutSection: String, Codable, Sendable, Hashable, CaseIterable {
     case warmUp, strength, skill, metcon, accessory, coolDown
 }
 
@@ -14,7 +14,7 @@ public enum WorkoutResultMetric: String, Codable, Sendable, Hashable {
     case elapsedSeconds, totalReps, loadKg, calories, distanceMeters, rounds, perMovementSets
 }
 
-public enum WorkoutPhaseKind: String, Codable, Sendable, Hashable {
+public enum WorkoutPhaseKind: String, Codable, Sendable, Hashable, CaseIterable {
     case work, rest, buyIn, main, cashOut
 }
 
