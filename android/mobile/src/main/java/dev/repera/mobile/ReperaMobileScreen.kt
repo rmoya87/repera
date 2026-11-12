@@ -250,7 +250,6 @@ fun ReperaMobileScreen(
     onAIDismissCreated: () -> Unit,
     onAICopyCreated: () -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
-    onWodMeasuredScore: (Double, String) -> Unit = { _, _ -> },
     onWodMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteWodBlock: () -> Unit,
     onReviseWodMovement: (String, Int, Double?) -> Unit,
@@ -338,7 +337,8 @@ fun ReperaMobileScreen(
     onDeleteAccount: () -> Unit = {},
     deletingAccount: Boolean = false,
     accountDeleteError: String? = null,
-    onDismissAccountDeleteError: () -> Unit = {}
+    onDismissAccountDeleteError: () -> Unit = {},
+    onWodMeasuredScore: (Double, String) -> Unit = { _, _ -> }
 ) {
     ReperaTheme {
         if (!isAuthenticated) {
