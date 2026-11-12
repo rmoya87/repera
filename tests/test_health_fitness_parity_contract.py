@@ -92,6 +92,30 @@ class HealthFitnessParityContractTests(unittest.TestCase):
         self.assertIn("healthOwnedByWatch = true", start)
         self.assertIn("beginWorkout(", start)
 
+    def test_iphone_builder_measured_kcal_copied_to_session(self):
+        """Fitness puede tener kcal Repera; el detalle no debe quedar en «—»."""
+        health = read("Apps/Repera/Sources/HealthKitStore.swift")
+        store = read("Apps/Repera/Sources/ReperaStore.swift")
+        finish = health.split("func finishWorkout(", 1)[1].split(
+            "nonisolated static func shouldTrustAppleWorkoutEnergy", 1
+        )[0]
+        # Tras cerrar el builder o reutilizar el propio, leer energía medida.
+        self.assertIn("verifiedKcal = await energyKcalForWorkout(owned)", finish)
+        self.assertIn("verifiedKcal = await energyKcalForWorkout(saved)", finish)
+        extras = health.split("func sessionHealthExtras(for session:", 1)[1].split(
+            "func heartZones(for session:", 1
+        )[0]
+        # energyOnly y UI aceptan medición del builder iPhone (no solo externos).
+        self.assertNotIn(
+            "!Self.isReperaSource(workout.sourceRevision.source)\n"
+            "                    || Self.isWatchRecordedSource(workout.sourceRevision.source)",
+            extras.split("if energyOnly {", 1)[1].split("let rangeStart", 1)[0],
+        )
+        self.assertIn("baseEnergy = await energyKcalForWorkout(workout)", extras)
+        self.assertIn("func measuredWorkoutEnergyKcal(uuid:", health)
+        self.assertIn("v2026_11_12_measured_own", store)
+        self.assertIn("measuredWorkoutEnergyKcal(uuid: uuid)", store)
+
     def test_watch_pending_never_writes_phone_shell_and_waits_on_save(self):
         store = read("Apps/Repera/Sources/ReperaStore.swift")
         health = read("Apps/Repera/Sources/HealthKitStore.swift")

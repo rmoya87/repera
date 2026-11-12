@@ -326,10 +326,10 @@ final class ReperaStore: NSObject {
         }
     }
 
-    private static let sessionKcalRecalcDefaultsKey = "repera.recalcSessionKcal.v2026_10_22_health_only"
+    private static let sessionKcalRecalcDefaultsKey = "repera.recalcSessionKcal.v2026_11_12_measured_own"
 
-    /// Depura las kcal estimadas de versiones anteriores. Solo conserva valores
-    /// corroborados por un HKWorkout externo (Watch / Apple Salud / otra app).
+    /// Alinea kcal de sesión con la medición del HKWorkout enlazado (builder
+    /// iPhone, Watch u otra app). No conserva estimaciones locales sin workout.
     @MainActor
     private func recalculateStoredSessionKcalIfNeeded() async {
         let defaults = UserDefaults.standard
@@ -345,9 +345,8 @@ final class ReperaStore: NSObject {
             var session = state.workouts[i]
             let verified: Double?
             if let uuid = session.healthKitWorkoutUUID {
-                let fromHealth = await health.externalWorkoutEnergyKcal(uuid: uuid)
-                // Apple Health sync from Watch to iPhone can lag behind WatchConnectivity.
-                // Keep real Watch HK measurements while the iPhone awaits its HK sample.
+                let fromHealth = await health.measuredWorkoutEnergyKcal(uuid: uuid)
+                // Sync Watch→iPhone puede ir detrás de WatchConnectivity.
                 verified = fromHealth ?? (
                     session.appleHealthProvenance == "watchHealthKit"
                         ? session.appleActiveEnergyKcal : nil

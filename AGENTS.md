@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-11.
+Última actualización: 2026-11-12.
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -183,6 +183,27 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   `:wear:testDebugUnitTest` y bloqueó `android-native` / Play.
 - Contrato: `tests/test_watch_hub_contract.py` +
   `WearMultiplePlansTest.mergeRecentSportsKeepsLocalOrderAndFillsFromPhone`.
+
+#### Apple — Fitness con kcal Repera y detalle en «—» (12/11/2026)
+- Fitness puede mostrar 219 kcal con fuente «Repera» (builder iPhone con
+  `activeEnergyBurned`) mientras el detalle Repera pone «—». Causa: al
+  finalizar, `finishWorkout` enlazaba el UUID pero dejaba `verifiedKcal = 0`,
+  y `sessionHealthExtras` ocultaba toda energía de origen Repera iPhone
+  (defensa anti-estimaciones legacy).
+- Fix: leer `energyKcalForWorkout` del HKWorkout propio al cerrar; aceptar
+  esa medición en extras/`reconcileWatchHealthMetrics`; migración
+  `v2026_11_12_measured_own`. Nunca estimar por tiempo/carga.
+- Contrato: `tests/test_health_fitness_parity_contract.py`.
+
+#### Apple — CFBundleVersion app vs extensión (12/11/2026)
+- Error: «CFBundleVersion of an app extension ('105') must match …
+  containing parent app ('103')». Causa: build literal en **TARGET Repera →
+  General** (103) mientras PROJECT / extensiones heredaban otro (105);
+  `Configs/Version.xcconfig` podía quedar atrás (102).
+- Fix: editar solo `REPERA_BUILD_NUMBER` en `Configs/Version.xcconfig` (o
+  `scripts/sync_versions.py --set …`) al número más alto ya usado, luego
+  `xcodegen generate`. Nunca fijar build solo en el target iPhone.
+- Contrato: `python3 scripts/sync_versions.py --check`.
 
 #### Apple — «Missing package product» Supabase/GoogleSignIn/Firebase (11/11/2026)
 - Con disco ~lleno, `xcodebuild -resolvePackageDependencies` deja

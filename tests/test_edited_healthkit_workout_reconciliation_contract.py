@@ -51,7 +51,9 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
     def test_measured_energy_not_replaced_with_estimation(self):
         health = read(IOS / "HealthKitStore.swift")
         self.assertIn("revisedWorkoutQuantity(", health)
-        self.assertIn("let baseEnergy = await externalWorkoutEnergyKcal(uuid: workoutUUID)", health)
+        # Builder iPhone: energyKcalForWorkout; Watch/otras apps: external…
+        self.assertIn("baseEnergy = await energyKcalForWorkout(workout)", health)
+        self.assertIn("baseEnergy = await externalWorkoutEnergyKcal(uuid: workoutUUID)", health)
         self.assertIn("editedWindowQuantity(", health)
         self.assertIn("if groups.count == 1", health)
 
@@ -91,7 +93,7 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         segment = store.split("func reconcileWatchHealthMetrics() async", 1)[1].split(
             "func repairPastHealthKitExports()", 1
         )[0]
-        self.assertIn("($0.appleActiveEnergyKcal ?? 0) <= 0", segment)
+        self.assertIn("(session.appleActiveEnergyKcal ?? 0) <= 0", segment)
         self.assertIn("sessionHealthExtras(for: original, energyOnly: true)", segment)
         health = read(IOS / "HealthKitStore.swift")
         self.assertIn("if !energyOnly { await ensureWorkoutRouteAccess() }", health)

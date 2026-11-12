@@ -1562,12 +1562,10 @@ final class HealthKitStore {
 
         let shouldReadEditedWindow = session.userEditedDuration && end > start
             && workout != nil
-        // Reconciliación en segundo plano: consulta solo la energía auténtica
-        // del HKWorkout verificado, sin pedir rutas ni cargar pulso/GPS.
+        // Reconciliación en segundo plano: solo energía medida del HKWorkout
+        // enlazado (builder iPhone, Watch u otra app), sin rutas ni FC.
         if energyOnly {
             guard let workout,
-                  (!Self.isReperaSource(workout.sourceRevision.source)
-                    || Self.isWatchRecordedSource(workout.sourceRevision.source)),
                   let measured = await energyKcalForWorkout(workout)
             else { return nil }
             var kcal = measured
@@ -1604,16 +1602,19 @@ final class HealthKitStore {
             extras.movementUsesTimeWindow = true
         }
 
-        // Una estimación antigua de Repera nunca prevalece sobre Apple Salud.
-        // Incluso si se escribió como muestra en nuestro HKWorkout, se oculta.
-        if let workout,
-           Self.isReperaSource(workout.sourceRevision.source),
-           !Self.isWatchRecordedSource(workout.sourceRevision.source) {
-            extras.activeEnergyKcal = nil
-            extras.energySourceIsVerified = false
-        } else if let workoutUUID {
-            let baseEnergy = await externalWorkoutEnergyKcal(uuid: workoutUUID)
-            if shouldReadEditedWindow, let workout,
+        // Energía solo desde statistics/samples del HKWorkout (builder iPhone,
+        // Watch u otra app). Nunca estimar por duración/carga. Las kcal
+        // inventadas legacy ya no se escriben; ocultar el builder propio
+        // dejaba Fitness con kcal y Repera en «—».
+        if let workoutUUID, let workout {
+            let baseEnergy: Double?
+            if Self.isReperaSource(workout.sourceRevision.source),
+               !Self.isWatchRecordedSource(workout.sourceRevision.source) {
+                baseEnergy = await energyKcalForWorkout(workout)
+            } else {
+                baseEnergy = await externalWorkoutEnergyKcal(uuid: workoutUUID)
+            }
+            if shouldReadEditedWindow,
                let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
                 extras.activeEnergyKcal = await revisedWorkoutQuantity(
                     type, workout: workout, newStart: start, newEnd: end,
@@ -1622,7 +1623,7 @@ final class HealthKitStore {
             } else {
                 extras.activeEnergyKcal = baseEnergy
             }
-            if workout != nil { extras.energySourceIsVerified = true }
+            extras.energySourceIsVerified = (extras.activeEnergyKcal ?? 0) > 0
         } else {
             extras.activeEnergyKcal = nil
         }
@@ -2481,6 +2482,13 @@ final class HealthKitStore {
         return await energyKcalForWorkout(workout)
     }
 
+    /// Energía medida en el HKWorkout enlazado (builder iPhone, Watch u otra app).
+    /// No estima: solo statistics / samples / totalEnergyBurned del workout.
+    func measuredWorkoutEnergyKcal(uuid: UUID) async -> Double? {
+        guard let workout = await fetchWorkout(uuid: uuid) else { return nil }
+        return await energyKcalForWorkout(workout)
+    }
+
     private func fetchRoutes(for workout: HKWorkout) async -> [HKWorkoutRoute] {
         let byWorkout = HKQuery.predicateForObjects(from: workout)
         let byDate = HKQuery.predicateForSamples(
@@ -2775,7 +2783,8 @@ final class HealthKitStore {
     }
 
     /// Finaliza y escribe la sesión en Salud sin inventar muestras de energía.
-    /// Solo un HKWorkout externo con kcal registradas puede asignar kcal a Repera.
+    /// Las kcal de la sesión Repera salen de la medición del HKWorkout
+    /// (builder iPhone, Watch u otra app), nunca de duración/carga.
     func finishWorkout(
         sessionId: UUID,
         title: String,
@@ -2861,6 +2870,8 @@ final class HealthKitStore {
                 duration = max(1, owned.duration)
                 resolvedStart = owned.startDate
                 resolvedEnd = owned.endDate
+                // Builder iPhone ya pudo acumular activeEnergyBurned; no dejar 0.
+                verifiedKcal = await energyKcalForWorkout(owned) ?? 0
             }
             await discardLocalBuilder()
             lastError = nil
@@ -2879,6 +2890,7 @@ final class HealthKitStore {
             duration = max(1, owned.duration)
             resolvedStart = owned.startDate
             resolvedEnd = owned.endDate
+            verifiedKcal = await energyKcalForWorkout(owned) ?? 0
             await discardLocalBuilder()
             lastError = nil
         } else if isWatchWorkoutMirrored {
@@ -2910,7 +2922,12 @@ final class HealthKitStore {
                     locationType: locationType,
                     recordedDistanceMeters: recordedDistanceMeters
                 )
-                if savedUUID != nil { lastError = nil }
+                if let uuid = savedUUID {
+                    lastError = nil
+                    if let saved = await fetchWorkout(uuid: uuid) {
+                        verifiedKcal = await energyKcalForWorkout(saved) ?? 0
+                    }
+                }
             }
         } else {
             // Sin autorización: guardar únicamente en Repera, sin afirmar que
