@@ -82,6 +82,42 @@ struct BoardScanGlobalFixturesTests {
         #expect(blocks.first?.movements.last?.repScheme == [1,2,3,4,5,6,7,8,9,10])
     }
 
+    @Test func maxRepsAndGeneric1RMProgressionAreNotFakeMovements() {
+        let maximum = BoardScanLiteParser.parse(ocrText: """
+        Squat snatch
+        Max (n) rep(s)
+        Metcon
+        3min AMRAP (x4)
+        5 Hang Power Snatch #40/25kg
+        10 Pull Up
+        15 Air Squat
+        20 Double Under
+        1mn Rest between AMRAPs
+        """, catalog: catalog).blocks
+        #expect(maximum.count == 2)
+        guard maximum.count == 2 else { return }
+        #expect(maximum[0].wodFormat == .maxEffort)
+        #expect(maximum[0].movements.count == 1)
+        #expect(maximum[1].wodFormat == .amrap)
+        #expect(maximum[1].rounds == 4)
+        #expect(maximum[1].restBetweenRoundsSeconds == 60)
+
+        let clean = Exercise(name: "Clean", muscleGroup: "Piernas", searchAliases: ["Squat Clean"])
+        let strength = BoardScanLiteParser.parse(ocrText: """
+        Weightlifting "Squat Clean 1RM Test"
+        Every 90s For 15min (10 Series)
+        Sets 1-2: 3 Reps #75-80%
+        Sets 3-4: 2 Reps #80-85%
+        Sets 5-10: 1 Rep #Buscar la 1RM
+        *NO Touch & Go. Trabaja a singles
+        """, catalog: [clean]).blocks
+        #expect(strength.count == 1)
+        #expect(strength.first?.kind == .strength)
+        #expect(strength.first?.exercises.first?.plannedSets.map(\.targetReps) ==
+                [3,3,2,2,1,1,1,1,1,1])
+        #expect(strength.first?.wodNotes?.contains("75-80%") == true)
+    }
+
     @Test func thePhotoFormatsStaySeparatedAcrossManyRealBoards() {
         let cases: [(String, String, Int)] = [
             ("team emom", """
