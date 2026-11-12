@@ -564,11 +564,13 @@ Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 - Tras añadir Swift en subcarpeta nueva **o archivo Swift nuevo en Sources/**: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
 
 ```yaml
-# ❌ BAD — helpers al EOF de Theme.swift / undo: @MainActor () -> Void en @State
-# → Cannot find 'OGUndoToastState' + Passing non-Sendable parameter 'undo'
+# ❌ BAD — @MainActor struct OGUndoToastState: Equatable + undo closure en @State
+# → Equatable cruza aislamiento / Cannot find type / non-Sendable 'undo'
 
-# ✅ GOOD — toast tras `enum OG`; handler en box MainActor (sin @Sendable);
+# ✅ GOOD — OGUndoToastState: Identifiable (sin Equatable/@MainActor en el struct);
+# handler en class @unchecked Sendable; toast tras enum OG.
 # @FocusState: usar `focus`, no `focus.wrappedValue`
+# ExercisePickerSheet aliases: Map<String, String> (= ExerciseSearchAssets.load)
 ```
 
 #### Apple — XcodeGen scripts + User Script Sandboxing (dSYMs Archive)
