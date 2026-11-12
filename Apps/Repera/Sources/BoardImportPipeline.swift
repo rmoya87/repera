@@ -48,7 +48,15 @@ enum BoardImportPipeline {
             return local
         }
 
-        let enriched = BoardScanLiteParser.enrichBlocks(aiBlocks, catalog: catalog)
+        var enriched = BoardScanLiteParser.enrichBlocks(aiBlocks, catalog: catalog)
+        // The local parse already identified phases/collaboration; AI may
+        // refine movement names but must not erase these semantics.
+        if enriched.count == local.blocks.count {
+            for index in enriched.indices {
+                enriched[index].structure = enriched[index].structure ?? local.blocks[index].structure
+                enriched[index].timeCapSeconds = enriched[index].timeCapSeconds ?? local.blocks[index].timeCapSeconds
+            }
+        }
         guard BoardScanAIResultGuard.isConsistent(
             localBlocks: local.blocks, proposedBlocks: enriched
         ) else {
