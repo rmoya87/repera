@@ -1252,7 +1252,8 @@ struct WatchSessionView: View {
                     scoreStepper(label: "Rondas", value: hub.completedRounds,
                                  down: { hub.adjustRounds(-1) }, up: { hub.adjustRounds(1) })
                 }
-                if hub.current?.wodFormat?.resultCapture == .totalReps {
+                if hub.current?.wodFormat?.resultCapture == .totalReps &&
+                    !hub.reviewScoreIsMeasured && hub.reviewScoreMetric != .elapsedSeconds {
                     scoreStepper(
                         label: hub.current?.wodFormat == .amrap
                             ? "Reps adicionales" : "Repeticiones totales",
@@ -1261,7 +1262,20 @@ struct WatchSessionView: View {
                         up: { hub.adjustExtraReps(1) }
                     )
                 }
-                if hub.current?.wodFormat?.resultCapture == .elapsedTime {
+                if hub.reviewScoreIsMeasured {
+                    let metric = hub.reviewScoreMetric
+                    let suffix = metric == .loadKg ? "kg" :
+                        metric == .calories ? "kcal" : "m"
+                    metricStepper(
+                        label: metric == .loadKg ? "Carga máxima" :
+                            metric == .calories ? "Calorías máximas" : "Distancia máxima",
+                        value: String(format: "%.1f %@", hub.reviewMaxValue, suffix),
+                        down: { hub.adjustReviewMaxValue(metric == .loadKg ? -0.5 : -1) },
+                        up: { hub.adjustReviewMaxValue(metric == .loadKg ? 0.5 : 1) }
+                    )
+                }
+                if hub.current?.wodFormat?.resultCapture == .elapsedTime ||
+                    hub.reviewScoreMetric == .elapsedSeconds {
                     metricStepper(
                         label: "Tiempo final",
                         value: timeLabel(hub.reviewElapsedSeconds ?? hub.blockElapsed),
@@ -1279,10 +1293,43 @@ struct WatchSessionView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
+                if let phase = hub.reviewTrackedPhase {
+                    Divider()
+                    Text(hub.reviewHasTeam ? "Parcial por atleta" : "Parcial del intervalo")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    if (phase.repeatCount ?? 1) > 1 {
+                        scoreStepper(
+                            label: "Intervalo",
+                            value: hub.reviewPhaseIteration,
+                            down: { hub.adjustReviewPhaseIteration(-1) },
+                            up: { hub.adjustReviewPhaseIteration(1) }
+                        )
+                    }
+                    if hub.reviewHasTeam {
+                        HStack(spacing: 6) {
+                            Button("Atleta 1") { hub.selectReviewParticipant(1) }
+                                .buttonStyle(.bordered)
+                                .tint(hub.reviewParticipantIndex == 1 ? accent : .gray)
+                            Button("Atleta 2") { hub.selectReviewParticipant(2) }
+                                .buttonStyle(.bordered)
+                                .tint(hub.reviewParticipantIndex == 2 ? accent : .gray)
+                        }
+                    }
+                    scoreStepper(
+                        label: "Reps parcial",
+                        value: hub.reviewPartialReps,
+                        down: { hub.adjustReviewPartialReps(-1) },
+                        up: { hub.adjustReviewPartialReps(1) }
+                    )
+                    Button("Guardar parcial") { hub.saveReviewPhaseResult() }
+                        .buttonStyle(.bordered)
+                }
                 Button("Terminar") { hub.confirmBlock() }
                     .buttonStyle(.borderedProminent)
                     .tint(accent)
                     .foregroundStyle(.black)
+                    .disabled(!hub.canConfirmReviewBlock)
             }
             .padding(.horizontal, 6)
         }
