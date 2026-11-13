@@ -1430,6 +1430,22 @@ struct WorkoutDetailView: View {
                     .font(.system(size: 22, weight: .bold).monospacedDigit())
                     .foregroundStyle(OG.label)
                     .ogNumericText(value: result.summaryLabel, reduceMotion: reduceMotion)
+                if let phases = result.phaseResults, !phases.isEmpty {
+                    ForEach(Array(phases.prefix(5)), id: \.id) { phase in
+                        let note = phase.participantIndex.map { " · Atleta \($0)" } ?? ""
+                        let measure = phase.completedReps.map { "\($0) reps" }
+                            ?? phase.elapsedSeconds.map { "\($0) s" }
+                            ?? "Sin marca"
+                        Text("Intervalo \(phase.iteration)\(note): \(measure)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(OG.label2)
+                    }
+                    if phases.count > 5 {
+                        Text("+\(phases.count - 5) parciales registrados")
+                            .font(.caption)
+                            .foregroundStyle(OG.label3)
+                    }
+                }
             }
             Spacer(minLength: 0)
             if let format = result.format {
