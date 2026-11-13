@@ -185,7 +185,9 @@ public enum CompletedWorkoutEditing {
                     rounds: entry.blockRounds,
                     workSeconds: entry.blockWorkSeconds,
                     restSeconds: entry.blockRestSeconds,
-                    restBetweenRoundsSeconds: entry.blockRestBetweenRoundsSeconds
+                    restBetweenRoundsSeconds: entry.blockRestBetweenRoundsSeconds,
+                    timeCapSeconds: entry.blockTimeCapSeconds,
+                    structure: entry.blockStructure
                 )
                 if kind == .strength {
                     block.exercises = [RoutineExercise(
