@@ -74,7 +74,7 @@ struct WorkoutStructureEditorView: View {
                     update { model in
                         model.phases.append(WorkoutPhase(
                             kind: .main, title: "Trabajo principal",
-                            movementIDs: available.map(\.id)
+                            movementIDs: available.map { $0.id }
                         ))
                     }
                 } label: {
