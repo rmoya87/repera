@@ -50,7 +50,7 @@ class WodLibraryInstrumentedTest {
   var opened:String?=null
   compose.setContent {MaterialTheme {WodLibraryScreen("fixture",false,emptySet(),{},{},
    exercises=listOf(ExerciseEntry("exercise","Ejercicio singular zzzz",true,false)),onExercise={opened=it})}}
-  compose.onNodeWithText("Nombre o formato").performTextInput("zzzz")
+  compose.onNodeWithText("Nombre o formato", useUnmergedTree = true).performTextInput("zzzz")
   compose.onNodeWithTag("wod_fallback_exercise").performScrollTo().performClick()
   compose.runOnIdle {Assert.assertEquals("exercise",opened)}
  }
@@ -63,7 +63,7 @@ class WodLibraryInstrumentedTest {
      TextButton(onClick=close,modifier=Modifier.testTag("fixture_detail")) {Text(entry.id)}
     })
   }}}
-  compose.onNodeWithText("Nombre o formato").performTextInput("zzzz")
+  compose.onNodeWithText("Nombre o formato", useUnmergedTree = true).performTextInput("zzzz")
   compose.onNodeWithTag("wod_fallback_split").assertExists()
   compose.onNodeWithTag("wod_fallback_exercise").performScrollTo().performClick()
   compose.onNodeWithTag("fixture_detail").assertExists().performClick()
@@ -75,9 +75,9 @@ class WodLibraryInstrumentedTest {
    WodLibraryScreen("fixture",false,emptySet(),{},{},exerciseDetail={_,_->Text("detail")})
   }}}
   compose.onNodeWithTag("wod_fallback_split").assertDoesNotExist()
-  compose.onNodeWithText("Nombre o formato").performTextInput("zzzz")
+  compose.onNodeWithText("Nombre o formato", useUnmergedTree = true).performTextInput("zzzz")
   compose.onNodeWithTag("wod_fallback_split").assertExists()
-  compose.onNodeWithText("Nombre o formato").performTextClearance()
+  compose.onNodeWithText("Nombre o formato", useUnmergedTree = true).performTextClearance()
   compose.onNodeWithTag("wod_fallback_split").assertDoesNotExist()
   scrollToCatalog("wod_catalog_fran")
   compose.onNodeWithTag("wod_catalog_fran").assertExists()

@@ -26,9 +26,12 @@ class AiRoutineAtomicityInstrumentedTest {
   repo.importAiRoutine("plan",schedule) {resolve ->"Plan" to blocks(resolve("Synthetic new",null),12)}
   val saved=JSONObject(String(store.read()!!));assertEquals(1,saved.getInt("syncRevision"))
   assertEquals(1,saved.getJSONArray("exercises").length());assertEquals(12,saved.getJSONArray("routines").getJSONObject(0).getJSONArray("blocks").length())
-  val before=store.read()!!
-  repo.importAiRoutine("plan",schedule) {error("idempotent retry must not rebuild")}
-  assertArrayEquals(before,store.read())
+  // Upsert por planId: el build puede repetirse (edición IA), pero no duplica rutina.
+  repo.importAiRoutine("plan",schedule) {resolve ->"Plan" to blocks(resolve("Synthetic new",null),12)}
+  val after=JSONObject(String(store.read()!!))
+  assertEquals(1,after.getJSONArray("routines").length())
+  assertEquals(12,after.getJSONArray("routines").getJSONObject(0).getJSONArray("blocks").length())
+  assertEquals(1,after.getJSONArray("exercises").length())
  }
  @Test fun concurrentEditOrRevocationCannotLeaveHalfImportedCatalog() {
   val (repo,store,account)=fixture();var allowed=true

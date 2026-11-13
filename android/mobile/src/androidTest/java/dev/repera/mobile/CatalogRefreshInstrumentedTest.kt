@@ -24,7 +24,10 @@ class CatalogRefreshInstrumentedTest {
         (0 until catalog.length()).map { catalog.getJSONObject(it) }
             .firstOrNull { it.optString("id") == id }
 
-    /** Rebobina una cuenta al catálogo de 197 entradas anterior a la unificación. */
+    /**
+     * Rebobina quitando mobility/hyrox/altas de haltero del seed empaquetado.
+     * Con catalog_seed 447 → 357 (antes, con seed 290, quedaban 197).
+     */
     private fun rewindToLegacyCatalog(state: JSONObject) {
         val catalog = state.getJSONArray("exercises")
         val newHaltero = setOf("Snatch High Pull", "Clean High Pull", "Clean Deadlift",
@@ -36,7 +39,7 @@ class CatalogRefreshInstrumentedTest {
             if (cid.startsWith("mobility-") || cid.startsWith("hyrox-") ||
                 item.optString("name") in newHaltero) catalog.remove(i)
         }
-        assertEquals(197, catalog.length())
+        assertEquals(357, catalog.length())
     }
 
     @Test fun freshInstallPublishesBundledExercisesWithoutNetworkOrSupabase() {

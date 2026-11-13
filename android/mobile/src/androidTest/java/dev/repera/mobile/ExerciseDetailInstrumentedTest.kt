@@ -58,10 +58,16 @@ class ExerciseDetailInstrumentedTest {
         // canónico inglés deben resolver vía SportExerciseNames.spanishAlias como
         // hace ExerciseArt.swift (cadena exacto→legacy→canónico→contenida).
         assertEquals(
-            // Huecos compartidos con iOS: ninguno resuelve en el nameMap actual de
-            // ExerciseArt.swift (Jerk Dip and Drive es alta reciente sin arte aún).
-            listOf("Jerk Dip and Drive", "Remo pliométrico en anillas pies elevados"), missing)
-        assertEquals(372, total)  // 290 del seed unificado + 82 de mobility_seed (cobertura de arte)
+            // Huecos sin arte en el nameMap actual (seed 447 + mobility_seed).
+            listOf(
+                "Bear Hug Carry", "Battle Rope", "Dumbbell Floor Press", "Floor Press",
+                "Hand Release Push Up", "Kipping Handstand Push Up", "Pallof Press",
+                "Push Up", "Ring Push Up", "Sandbag Carry", "Sandbag Ground To Shoulder",
+                "Trap Bar Deadlift",
+            ),
+            missing,
+        )
+        assertEquals(529, total)  // 447 del seed unificado + 82 de mobility_seed
         for (critical in listOf("Snatch", "Hang Snatch", "Clean and Jerk", "Squat Jerk",
                 "Snatch High Pull", "Clean High Pull", "Clean Deadlift",
                 "Block Power Snatch", "Block Power Clean", "Snatch-Grip Push Press")) {

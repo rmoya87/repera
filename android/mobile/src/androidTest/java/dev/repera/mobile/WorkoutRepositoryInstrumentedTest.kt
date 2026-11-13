@@ -283,7 +283,7 @@ class WorkoutRepositoryInstrumentedTest {
         CatalogBootstrap.initializeEmptyAccount(ctx, user)
         val store = LocalSnapshotStore(ctx, user)
         val initial = JSONObject(String(store.read()!!))
-        assertEquals(290, initial.getJSONArray("exercises").length())
+        assertEquals(447, initial.getJSONArray("exercises").length())
         val movementId = initial.getJSONArray("exercises").getJSONObject(0).getString("id")
         val repo = WorkoutRepository(ctx, user)
         val createdId = repo.createRoutine(
