@@ -19,7 +19,7 @@ jobs:
     name: Catalog offline / invisible UI contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -46,7 +46,7 @@ jobs:
     name: ReperaDomain swift test
     runs-on: xcode-27
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Swift tests (strict concurrency package)
         run: |
           sudo xcode-select -s /Applications/Xcode_27.app/Contents/Developer
@@ -58,7 +58,7 @@ jobs:
     name: Modernization canvas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -73,7 +73,7 @@ jobs:
     name: Docs touchpoints
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Required docs exist
         run: |
           test -f README.md
@@ -117,7 +117,7 @@ jobs:
     name: XcodeGen + build + test
     runs-on: xcode-27
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Select Xcode 27 and require both simulator SDKs
         shell: bash
         run: |

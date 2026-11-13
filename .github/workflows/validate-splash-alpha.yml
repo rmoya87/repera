@@ -27,7 +27,7 @@ jobs:
   verify-native-launch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python -m pip install --disable-pip-version-check pillow
       - name: Verify native launch storyboard uses face mascot and brand green
         run: |
