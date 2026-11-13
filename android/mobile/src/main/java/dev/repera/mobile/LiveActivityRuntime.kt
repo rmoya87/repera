@@ -323,6 +323,20 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         val snapshot=state.snapshot(now) ?: return
         lastSaveMillis=now
         val generation=checkpointGeneration
+        // force=true (pause / cambio de cuenta / background): escritura síncrona.
+        // Si fuera async, forAccount(otro) + restore podría leer IDLE antes del write.
+        if (force) {
+            try {
+                synchronized(store) {
+                    if (generation == checkpointGeneration) store.write(snapshot)
+                }
+            } catch (_: Exception) {
+                lastSaveMillis = 0L
+                lastError = "No se pudo guardar el punto de recuperación. Comprueba el almacenamiento."
+                revisions.value += 1
+            }
+            return
+        }
         // Writes are serialized off the main looper; a discard bumps the generation
         // under the store lock so a queued write can never resurrect a discarded activity.
         checkpointIO.execute {

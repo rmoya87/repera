@@ -3604,13 +3604,31 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     }
 
     /** Cambia o borra el pin de la sesión ACTIVA desde el selector de lugar
-     *  (activeLocationPin set iOS). pin == null lo elimina. */
+     *  (activeLocationPin set iOS). pin == null lo elimina.
+     *  A diferencia de attachLocationPin (GPS/Wear, no pisa lugar manual),
+     *  aquí el usuario elige/cambia el sitio a propósito: sí sobrescribe. */
     @Synchronized fun setActiveLocationPin(sessionId: String, pin: dev.repera.domain.WorkoutLocationPin?) {
-        if (pin != null) { attachLocationPin(sessionId, pin); return }
         val state = loadOrNull() ?: return
         val session = state.optJSONObject("activeSession") ?: return
         if (session.optString("id") != sessionId) return
-        session.remove("locationPin")
+        if (pin == null) {
+            session.remove("locationPin")
+        } else {
+            session.put(
+                "locationPin",
+                JSONObject()
+                    .put("latitude", pin.latitude)
+                    .put("longitude", pin.longitude)
+                    .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+                    .apply {
+                        pin.name?.let { put("name", it) }
+                        pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
+                        pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
+                        pin.horizontalAccuracyMeters?.let { put("horizontalAccuracyMeters", it) }
+                        pin.source?.let { put("source", it) }
+                    },
+            )
+        }
         save(state)
     }
 

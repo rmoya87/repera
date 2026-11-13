@@ -554,13 +554,16 @@ fun ReperaSearchField(
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector = Icons.Outlined.Search,
     enabled: Boolean = true,
+    testTag: String = "repera_search_field",
 ) {
     val dark = androidx.compose.foundation.isSystemInDarkTheme()
     val searchBg = if (dark) MaterialTheme.colorScheme.surface else Color.White
     androidx.compose.material3.OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(testTag),
         enabled = enabled,
         singleLine = true,
         shape = RoundedCornerShape(999.dp),

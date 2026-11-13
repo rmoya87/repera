@@ -224,9 +224,17 @@ class RemoteExerciseCatalogInstrumentedTest {
             .put("updatedAt", "2026-10-01T00:00:00Z")
             .put("lastWriterDeviceId", "test")
             .put("settings", JSONObject())
-            .put("exercises", JSONArray().put(JSONObject()
-                .put("id", id).put("name", "Press banca").put("catalogId", "0025")
-                .put("isFavorite", true).put("isCustom", false).put("equipment", "Barra")))
+            // Segunda ficha local: si el remoto archiva Press banca y era la
+            // única visible, applyToAccount reabre lápidas para no dejar la
+            // biblioteca vacía. Con otra ficha activa el archivo sí permanece.
+            .put("exercises", JSONArray()
+                .put(JSONObject()
+                    .put("id", id).put("name", "Press banca").put("catalogId", "0025")
+                    .put("isFavorite", true).put("isCustom", false).put("equipment", "Barra"))
+                .put(JSONObject()
+                    .put("id", UUID.randomUUID().toString()).put("name", "Sentadilla")
+                    .put("catalogId", "0033").put("isFavorite", false)
+                    .put("isCustom", false).put("equipment", "Barra")))
             .put("routines", JSONArray())
             .put("workouts", JSONArray().put(workout))
             .put("bodyWeights", JSONArray())
@@ -246,8 +254,9 @@ class RemoteExerciseCatalogInstrumentedTest {
             val feed = RemoteExerciseCatalog(context)
             assertTrue(feed.applyToAccount(account))
             val first = JSONObject(String(store.read()!!, Charsets.UTF_8))
-            val ex = first.getJSONArray("exercises").getJSONObject(0)
-            assertEquals(id, ex.getString("id"))
+            val ex = (0 until first.getJSONArray("exercises").length())
+                .map { first.getJSONArray("exercises").getJSONObject(it) }
+                .first { it.getString("id") == id }
             assertEquals("Press banca corregido", ex.getString("name"))
             assertEquals("Barra y banco", ex.getString("equipment"))
             assertTrue(ex.getBoolean("isFavorite"))
@@ -260,9 +269,10 @@ class RemoteExerciseCatalogInstrumentedTest {
             file.writeText(cache.toString())
             assertTrue(feed.applyToAccount(account))
             val archived = JSONObject(String(store.read()!!, Charsets.UTF_8))
-            val kept = archived.getJSONArray("exercises").getJSONObject(0)
+            val kept = (0 until archived.getJSONArray("exercises").length())
+                .map { archived.getJSONArray("exercises").getJSONObject(it) }
+                .first { it.getString("id") == id }
             assertTrue(kept.getBoolean("isCatalogArchived"))
-            assertEquals(id, kept.getString("id"))
             assertTrue(kept.getBoolean("isFavorite"))
             assertEquals(1, archived.getJSONArray("workouts").length())
         } finally {

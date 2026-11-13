@@ -10,8 +10,10 @@ ANDROID="$ROOT/android"
 BATCH_SIZE="${CI_ANDROID_TEST_BATCH_SIZE:-8}"
 RESULTS_ROOT="$ANDROID/mobile/build/outputs/androidTest-results/connected/debug"
 MERGED_DIR="$ANDROID/mobile/build/ci-instrumented-batches"
-rm -rf "$MERGED_DIR"
-mkdir -p "$MERGED_DIR"
+# También bajo outputs/ para que upload-artifact del workflow lo recoja.
+UPLOAD_BATCHES="$RESULTS_ROOT/batches"
+rm -rf "$MERGED_DIR" "$UPLOAD_BATCHES"
+mkdir -p "$MERGED_DIR" "$UPLOAD_BATCHES"
 
 mapfile -t CLASSES < <(python3 "$ANDROID/ci_selected_android_tests.py" | tr ',' '\n' | sed '/^$/d')
 if ((${#CLASSES[@]} < 45)); then
@@ -24,11 +26,49 @@ TOTAL_TESTS=0
 BATCH_I=0
 FAIL=0
 
+dump_batch_failures() {
+  local dest="$1"
+  python3 - "$dest" <<'PY'
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+for xml in sorted(root.glob("TEST-*.xml")):
+    t = xml.read_text(encoding="utf-8", errors="ignore")
+    for m in re.finditer(r"<testcase\b([^>]*)>(.*?)</testcase>", t, re.S):
+        attrs, body = m.group(1), m.group(2)
+        if "<failure" not in body and "<error" not in body:
+            continue
+        name = re.search(r'\bname="([^"]+)"', attrs)
+        cls = re.search(r'\bclassname="([^"]+)"', attrs)
+        msg = re.search(r'message="([^"]*)"', body)
+        text = re.search(r"<(?:failure|error)[^>]*>([\s\S]*?)</(?:failure|error)>", body)
+        stack = (text.group(1) if text else "").replace("&#10;", "\n")
+        real = next(
+            (
+                line.strip()
+                for line in stack.splitlines()
+                if "dev.repera.mobile." in line and "InstrumentedTest" in line
+            ),
+            "",
+        )
+        print(
+            "FAIL",
+            (cls.group(1) if cls else "?") + "." + (name.group(1) if name else "?"),
+        )
+        if msg:
+            print(" ", msg.group(1)[:300])
+        if real:
+            print(" ", real[:300])
+PY
+}
+
 for ((i = 0; i < ${#CLASSES[@]}; i += BATCH_SIZE)); do
   BATCH_I=$((BATCH_I + 1))
   CHUNK=("${CLASSES[@]:i:BATCH_SIZE}")
   JOINED=$(IFS=,; echo "${CHUNK[*]}")
   echo "==> Batch $BATCH_I (${#CHUNK[@]} classes)"
+  # Aislar SharedPreferences / checkpoints entre lotes.
+  adb shell pm clear com.app.repera >/dev/null 2>&1 || true
   set +e
   gradle -p "$ANDROID" :mobile:connectedDebugAndroidTest \
     -Pandroid.testInstrumentationRunnerArguments.class="$JOINED" \
@@ -38,8 +78,10 @@ for ((i = 0; i < ${#CLASSES[@]}; i += BATCH_SIZE)); do
   # Conservar XML de este lote antes del siguiente overwrite.
   if [[ -d "$RESULTS_ROOT" ]]; then
     DEST="$MERGED_DIR/batch-$(printf '%02d' "$BATCH_I")"
-    mkdir -p "$DEST"
-    cp -a "$RESULTS_ROOT"/. "$DEST"/ || true
+    mkdir -p "$DEST" "$UPLOAD_BATCHES/batch-$(printf '%02d' "$BATCH_I")"
+    # No copiar el subdir batches/ sobre sí mismo.
+    find "$RESULTS_ROOT" -maxdepth 1 -type f -name 'TEST-*.xml' -exec cp {} "$DEST"/ \;
+    find "$RESULTS_ROOT" -maxdepth 1 -type f -name 'TEST-*.xml' -exec cp {} "$UPLOAD_BATCHES/batch-$(printf '%02d' "$BATCH_I")"/ \;
     for xml in "$DEST"/TEST-*.xml; do
       [[ -f "$xml" ]] || continue
       n=$(python3 - "$xml" <<'PY'
@@ -51,6 +93,9 @@ PY
 )
       TOTAL_TESTS=$((TOTAL_TESTS + n))
     done
+    if [[ "$CODE" -ne 0 ]]; then
+      dump_batch_failures "$DEST"
+    fi
   fi
   if [[ "$CODE" -ne 0 ]]; then
     echo "Batch $BATCH_I FAILED (exit $CODE)" >&2

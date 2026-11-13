@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-13 (Android Play VerifyError R8/Compose Añadir entreno).
+Última actualización: 2026-11-13 (Android instrumented lotes + pin/checkpoint/WodLibrary).
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -444,13 +444,15 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   en `android-native-ci.yml`. No es un bug de la app.
 - Contrato: `android/scripts/test_upload_play_release.py`.
 
-#### Android — instrumented phone: lote corto, no un -Pclass gigante (13/11/2026)
-- Un único `-Pandroid.testInstrumentationRunnerArguments.class=a,b,c…` (~3 KB)
-  con AGP 9.4 truncaba el extra del runner: solo corría la **primera** clase
-  (p. ej. 2 tests) y el harness veía `tests="[1-9]"` → **falso verde** + deploy.
-- AGP 9.5.1 pasó a ejecutar la suite completa y afloró asserts obsoletos del
-  seed **447** (antes hardcode 290/197) y flakiness por estado estático.
-- Fix: `android/ci_run_selected_android_tests.sh` (lotes) + asserts 447/357/529.
+#### Android — instrumented phone: lotes + causas reales de Verify/suite (13/11/2026)
+- Un único `-Pclass=a,b,c…` (~3 KB) con AGP 9.4 truncaba el extra → solo la
+  **1ª** clase (falso verde). AGP 9.5.1 + lotes ejecutan ~224 tests.
+- Fallos reales que bloqueaban Play (reproducidos en emulador local):
+  1. `checkpoint(force)` async → restore IDLE al cambiar cuenta (sync en force).
+  2. `setActiveLocationPin` reusaba `attachLocationPin` (no pisa nombre) → Gym B.
+  3. Archivo remoto de la única ficha visible se revertía (guard empty library).
+  4. WodLibrary: input al placeholder; usar `testTag` del `ReperaSearchField`.
+- Runner: lotes + `pm clear` + dump FAIL + XML en `…/batches/`.
   Contrato: `tests/test_android_instrumented_batch_contract.py`.
 
 #### Android — VerifyError R8/Compose en release (Comenzar + Añadir entreno) (13/11/2026)
