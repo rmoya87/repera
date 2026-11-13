@@ -2110,6 +2110,14 @@ final class WatchSessionHub: NSObject {
     var reviewScoreMetric: WorkoutResultMetric? {
         current?.blockStructure?.resultMetric
     }
+    var reviewScoreIsMeasured: Bool {
+        guard let metric = reviewScoreMetric else { return false }
+        return [.loadKg, .calories, .distanceMeters].contains(metric)
+    }
+
+    var canConfirmReviewBlock: Bool {
+        !reviewScoreIsMeasured || reviewMaxValue > 0
+    }
 
     private func existingReviewResult() -> WODBlockResult? {
         guard let id = current?.blockId else { return nil }
@@ -2153,8 +2161,7 @@ final class WatchSessionHub: NSObject {
         guard reviewingBlock, current?.wodFormat == .maxEffort,
               let metric = reviewScoreMetric,
               [.loadKg, .calories, .distanceMeters].contains(metric) else { return }
-        reviewMaxValue = min(50_000, max(0, (reviewMaxValue + delta) * 2.0
-            .rounded() / 2.0))
+        reviewMaxValue = min(50_000, max(0, ((reviewMaxValue + delta) * 2.0).rounded() / 2.0))
         save()
     }
 
@@ -2230,8 +2237,9 @@ final class WatchSessionHub: NSObject {
               let current = ctrl.session.currentExercise,
               let id = current.blockId else { return }
         let format = current.wodFormat
+        guard canConfirmReviewBlock else { return }
         let metric = format == .maxEffort ? reviewScoreMetric : nil
-        let measured = [.loadKg, .calories, .distanceMeters].contains(metric)
+        let measured = metric.map { [.loadKg, .calories, .distanceMeters].contains($0) } ?? false
         let timeScore = format?.resultCapture == .elapsedTime ||
             metric == .elapsedSeconds
         let elapsed: Int? = timeScore
