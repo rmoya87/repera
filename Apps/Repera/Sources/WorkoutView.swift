@@ -3460,7 +3460,7 @@ struct WODResultInlineEditor: View {
 
     private func phaseResultText(for phase: WorkoutPhase) -> Binding<String> {
         Binding(
-            get: { savedPhaseResult(phase)?.completedReps.map(String.init) ?? "" },
+            get: { savedPhaseResult(phase)?.completedReps.map { String($0) } ?? "" },
             set: { raw in
                 let trimmed = String(raw.filter(\.isNumber).prefix(6))
                 let key = phaseKey(phase)
@@ -3476,10 +3476,13 @@ struct WODResultInlineEditor: View {
     }
 
     private var mergedPhaseResults: [WorkoutPhaseResult] {
-        var entries = Dictionary(uniqueKeysWithValues:
-            (existing?.phaseResults ?? []).map {
-                ("\($0.phaseID.uuidString)|\($0.iteration)|\($0.participantIndex ?? 0)", $0)
-            })
+        // Do not trap on duplicate legacy keys; preserve the most recent
+        // entry for each phase/iteration/participant combination.
+        var entries: [String: WorkoutPhaseResult] = [:]
+        for entry in existing?.phaseResults ?? [] {
+            let key = "\(entry.phaseID.uuidString)|\(entry.iteration)|\(entry.participantIndex ?? 0)"
+            entries[key] = entry
+        }
         for (key, value) in editedPhaseResults {
             if value.completedReps != nil && value.isValid {
                 entries[key] = value
@@ -3511,8 +3514,8 @@ struct WODResultInlineEditor: View {
                 ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
             wodTemplateId: wodTemplateId ?? existing?.wodTemplateId,
             isRx: rxSelection == 0 ? nil : (rxSelection == 1),
-            measuredValue: isMeasuredMaxEffort ? parsedMeasurement : nil,
-            measuredMetric: isMeasuredMaxEffort ? scoreMetric : nil,
+            measuredValue: globalResultIsValid && isMeasuredMaxEffort ? parsedMeasurement : nil,
+            measuredMetric: globalResultIsValid && isMeasuredMaxEffort ? scoreMetric : nil,
             phaseResults: mergedPhaseResults
         ))
     }
