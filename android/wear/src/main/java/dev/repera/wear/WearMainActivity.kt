@@ -60,6 +60,7 @@ import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
 import dev.repera.domain.LiveSport
 import dev.repera.domain.WearBlockHeader
+import kotlin.math.roundToInt
 
 /**
  * This first native screen renders only genuine phone-delivered data.
@@ -2604,6 +2605,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val session = visibleSession ?: return
         if (!reviewingBlock) return
         val format = WodFormat.fromWire(session.wodFormatWire.orEmpty())
+        val measured = format == WodFormat.MAX_EFFORT &&
+            session.wodResultMetric in setOf("loadKg","calories","distanceMeters")
+        val scoreIsTime = format?.capture == dev.repera.domain.ResultCapture.ELAPSED_TIME ||
+            (format == WodFormat.MAX_EFFORT && session.wodResultMetric == "elapsedSeconds")
+        if (measured && reviewMeasuredValue <= 0.0) {
+            sendStatus = "Introduce una marca antes de terminar"
+            return
+        }
         if (watchStartedSession) {
             val snapshot = sessionCache.getString("snapshot", null)
                 ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return
@@ -2611,18 +2620,28 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             val blockId = session.blockId
             if (!blockId.isNullOrBlank() && format != null &&
                 format.capture != dev.repera.domain.ResultCapture.PER_MOVEMENT_SETS) {
+                val previous = snapshot.optJSONArray("wodResults") ?: JSONArray()
+                val existingScore=(0 until previous.length())
+                    .map {previous.getJSONObject(it)}
+                    .lastOrNull{it.optString("id")==blockId}
                 val score = JSONObject().put("id", blockId).put("format", format.wireName)
-                when (format.capture) {
+                if(measured) {
+                    score.put("measuredMetric", session.wodResultMetric)
+                        .put("measuredValue", reviewMeasuredValue)
+                } else if(scoreIsTime) {
+                    score.put("elapsedSeconds", reviewElapsedSeconds.coerceAtLeast(1))
+                } else when(format.capture) {
                     dev.repera.domain.ResultCapture.TOTAL_REPS -> {
-                        if (format == WodFormat.AMRAP || format == WodFormat.DEATH_BY)
-                            score.put("roundsCompleted", reviewRounds)
-                        score.put("totalReps", reviewExtraReps)
+                        if(format==WodFormat.AMRAP || format==WodFormat.DEATH_BY)
+                            score.put("roundsCompleted",reviewRounds)
+                        score.put("totalReps",reviewExtraReps)
                     }
-                    dev.repera.domain.ResultCapture.ELAPSED_TIME ->
-                        score.put("elapsedSeconds", reviewElapsedSeconds)
                     else -> {}
                 }
-                val previous = snapshot.optJSONArray("wodResults") ?: JSONArray()
+                existingScore?.optJSONArray("phaseResults")?.let {
+                    score.put("phaseResults",it)
+                }
+                if(existingScore?.has("isRx")==true)score.put("isRx",existingScore.get("isRx"))
                 val revised = JSONArray()
                 for (i in 0 until previous.length()) {
                     if (previous.getJSONObject(i).optString("id") != blockId)
@@ -2668,10 +2687,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 .put("sessionId", session.sessionId)
                 .put("blockId", session.blockId)
                 .put("format", format.wireName)
-                .put("roundsCompleted", reviewRounds)
-                .put("totalReps", reviewExtraReps)
-                .put("elapsedSeconds", reviewElapsedSeconds)
-                .toString().toByteArray(Charsets.UTF_8)
+                .apply {
+                    if(measured) {
+                        put("measuredMetric",session.wodResultMetric)
+                        put("measuredValue",reviewMeasuredValue)
+                    } else if(scoreIsTime) {
+                        put("elapsedSeconds",reviewElapsedSeconds.coerceAtLeast(1))
+                    } else if(format.capture==dev.repera.domain.ResultCapture.TOTAL_REPS) {
+                        if(format==WodFormat.AMRAP || format==WodFormat.DEATH_BY)
+                            put("roundsCompleted",reviewRounds)
+                        put("totalReps",reviewExtraReps)
+                    }
+                }.toString().toByteArray(Charsets.UTF_8)
             Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
                 nodes.forEach {
                     Wearable.getMessageClient(this).sendMessage(it.id, "/repera/wod-score", payload)
