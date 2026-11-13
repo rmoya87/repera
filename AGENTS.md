@@ -177,6 +177,13 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### BoardScan Lite — RFT+TC, MAX CAL y BUY-IN (13/11/2026)
+- Cabecera nombrada con `TC` no puede ganar antes de `\d+ RFT` (si no, `rounds=null` en `4 RFT (TC 12')`).
+- Lookahead ejercicio + `MAX …` excluye `MAX CAL` / `MAX ROUNDS OF` (si no, AMRAP/buy-in → `MAX_EFFORT` o CHIPPER).
+- `detectHeader` (BUY-IN, `N ROUNDS OF`) antes de saltar `isNonExerciseLine`; `WARM UP SHOULDERS` no es section label.
+- `1mn Rest between…` → `exerciseText` (`MN`→`MIN`) al leer `restBetweenRoundsSeconds`.
+- Contrato: `tests/test_board_scan_lite_header_contract.py` + `:domain:testDebugUnitTest` BoardScan*.
+
 #### Splash — solo cara estática, sin idle animado (13/11/2026)
 - El storyboard nativo **no anima**. Párpados/`Canvas` o idle GIF/WebP con
   blends entre poses se ven a trompicones / falsos.
