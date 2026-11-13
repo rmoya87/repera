@@ -76,18 +76,13 @@ function movementMatchesFilter(m,filter='all'){
 }
 // Formatos alineados con WODFormat de ReperaDomain (apps). «none» = Sin formato (como PlanView).
 const FORMATS={
- none:'Sin formato',
- sets:'Series (fuerza)',
- amrap:'AMRAP',
- emom:'EMOM / Every',
- tabata:'Tabata',
- rft:'RFT / For Time',
- fortime:'For Time',
- circuit:'Circuito',
- chipper:'Chipper',
- every:'Every / Intervalos'
+ none:'Sin formato',sets:'Series (fuerza)',strength:'Fuerza / Skill',
+ amrap:'AMRAP',emom:'EMOM / Every',tabata:'Tabata',rft:'RFT / For Time',
+ fortime:'For Time',circuit:'Circuito',chipper:'Chipper',every:'Every / Intervalos',
+ deathBy:'Muerte por',ladder:'Escalera',partner:'Partner',buyInCashOut:'Buy-in / Cash-out',
+ roundsForQuality:'Rounds for Quality',maxEffort:'Max Effort',afap:'AFAP'
 };
-const WOD_FORMAT_KEYS=new Set(['amrap','emom','tabata','rft','fortime','circuit','chipper','every']);
+const WOD_FORMAT_KEYS=new Set(['amrap','emom','tabata','rft','fortime','circuit','chipper','every','strength','deathBy','ladder','partner','buyInCashOut','roundsForQuality','maxEffort','afap']);
 function normalizeFormat(f){return f==null||f===''||f==='none'?'none':f;}
 function isWodFormat(f){return WOD_FORMAT_KEYS.has(normalizeFormat(f));}
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
@@ -624,8 +619,11 @@ export function handleEditorSearch(event){
 }
 
 const WOD_FORMAT_WIRE={
- none:null,sets:'strength',amrap:'amrap',emom:'emom',every:'emom',rft:'forTime',fortime:'forTime',
- tabata:'tabata',circuit:'circuit',chipper:'chipper'
+ none:null,sets:'strength',strength:'strength',amrap:'amrap',emom:'emom',
+ every:'emom',rft:'forTime',fortime:'forTime',tabata:'tabata',
+ circuit:'circuit',chipper:'chipper',deathBy:'deathBy',ladder:'ladder',
+ partner:'partner',buyInCashOut:'buyInCashOut',roundsForQuality:'roundsForQuality',
+ maxEffort:'maxEffort',afap:'afap'
 };
 
 /** schemaVersion:1 consumido por iOS/Android. Rest solo como movement isRest en WOD. */
@@ -725,7 +723,10 @@ export function visualPrescription(prescription){
   const wod=b.kind==='wod',entries=(wod?b.movements:b.exercises)||[];
   const formatWire=b.wodFormat||'';
   return {kind:wod?'wod':(b.kind==='warmup'?'warmup':b.kind==='accessory'?'accessory':'strength'),
-   format:wod?({amrap:'amrap',emom:'emom',forTime:'rft',tabata:'tabata',circuit:'circuit',chipper:'chipper',strength:'sets'})[formatWire]||'fortime'
+   format:wod?({amrap:'amrap',emom:'emom',forTime:'rft',tabata:'tabata',
+    circuit:'circuit',chipper:'chipper',strength:'strength',deathBy:'deathBy',
+    ladder:'ladder',partner:'partner',buyInCashOut:'buyInCashOut',
+    roundsForQuality:'roundsForQuality',maxEffort:'maxEffort',afap:'afap'})[formatWire]||'fortime'
     :(formatWire?'sets':'none'),
    title:b.title,rounds:b.rounds||1,timeCap:b.timeCapMinutes||0,
    ...(b.structure?{structure:b.structure}:{}),
