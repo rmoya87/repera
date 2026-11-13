@@ -28,6 +28,8 @@ class AndroidInstrumentedBatchContractTests(unittest.TestCase):
         script = (ANDROID / "ci_run_selected_android_tests.sh").read_text(encoding="utf-8")
         self.assertIn("BATCH_SIZE", script)
         self.assertIn("connectedDebugAndroidTest", script)
+        # Path del XML como argv de python3 (heredoc detrás rompe sys.argv → exit 126).
+        self.assertIn('python3 - "$xml" <<\'PY\'', script)
 
     def test_bundled_catalog_seed_count_is_447(self):
         seed = json.loads(SEED.read_text(encoding="utf-8"))

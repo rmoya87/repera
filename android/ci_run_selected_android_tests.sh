@@ -42,13 +42,13 @@ for ((i = 0; i < ${#CLASSES[@]}; i += BATCH_SIZE)); do
     cp -a "$RESULTS_ROOT"/. "$DEST"/ || true
     for xml in "$DEST"/TEST-*.xml; do
       [[ -f "$xml" ]] || continue
-      n=$(python3 - <<PY
-import re,sys
-t=open(sys.argv[1],encoding='utf-8',errors='ignore').read()
-m=re.search(r'tests="(\d+)"', t)
+      n=$(python3 - "$xml" <<'PY'
+import re, sys
+t = open(sys.argv[1], encoding="utf-8", errors="ignore").read()
+m = re.search(r'tests="(\d+)"', t)
 print(int(m.group(1)) if m else 0)
 PY
-"$xml")
+)
       TOTAL_TESTS=$((TOTAL_TESTS + n))
     done
   fi
