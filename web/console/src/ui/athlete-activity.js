@@ -77,11 +77,26 @@ function workoutBlocks(workout){
 function wodResults(workout){
  const results=asArray(workout.wod_results);
  if(!results.length)return '';
+ const unit=metric=>({loadKg:'kg',calories:'kcal',distanceMeters:'m',
+   totalReps:'reps',elapsedSeconds:'s'})[metric]||'';
+ const phaseText=result=>{
+  const rows=asArray(result.phaseResults);
+  if(!rows.length)return '';
+  const byAthlete=[1,2].map(n=>rows.filter(p=>p.participantIndex===n)
+    .reduce((total,p)=>total+(Number(p.completedReps)||0),0));
+  const hasAthletes=rows.some(p=>p.participantIndex===1||p.participantIndex===2);
+  const total=rows.reduce((v,p)=>v+(Number(p.completedReps)||0),0);
+  return '<small>'+e(hasAthletes
+   ?('Atleta 1: '+byAthlete[0]+' reps · Atleta 2: '+byAthlete[1]+' reps')
+   :(rows.length+' parciales · '+total+' reps'))+'</small>';
+ };
  return `<section class="pa-wod-results"><h4>Resultados del WOD</h4><div class="pa-wod-stats">
  ${results.map(x=>`<div><small>${e(x.format||'WOD')}</small>
  ${x.roundsCompleted!=null?`<strong>${e(amount(x.roundsCompleted))} rondas</strong>`:''}
  ${x.totalReps!=null?`<span>${e(amount(x.totalReps))} repeticiones</span>`:''}
- ${x.elapsedSeconds!=null?`<span>${e(duration(x.elapsedSeconds))} min</span>`:''}</div>`).join('')}</div></section>`;
+ ${x.elapsedSeconds!=null?`<span>${e(duration(x.elapsedSeconds))} min</span>`:''}
+ ${x.measuredValue!=null&&Number.isFinite(Number(x.measuredValue))?`<strong>${e(amount(x.measuredValue))} ${e(unit(x.measuredMetric))}</strong>`:''}
+ ${phaseText(x)}</div>`).join('')}</div></section>`;
 }
 function workoutCard(w,i){
  const time=w.started_at?fmtClock(w.started_at):'';
