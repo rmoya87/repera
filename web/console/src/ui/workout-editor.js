@@ -228,7 +228,7 @@ function movementMarkup(x,i){
  const kind=free?'free':'exercise';
  const subtitle=free?'Movimiento libre':(known?.group||'Movimiento personalizado');
  const art=free?`<span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">＋</span>`:thumb(known||{art:null});
- return `<article class="editor-exercise ${free?'is-free':''}" data-editor-exercise data-origin-id="${escapeHTML(x.originId||'')}" data-id="${escapeHTML(known?.id||x.id||'custom')}" data-name="${escapeHTML(x.name)}" data-item-kind="${kind}"><div class="editor-exercise-head">${art}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(subtitle)}</small></div>${removeBtn(i,`Eliminar ${x.name||'ejercicio'}`)}</div><div class="editor-values">
+ return `<article class="editor-exercise ${free?'is-free':''}" data-editor-exercise data-origin-id="${escapeHTML(x.originId||'')}" data-planned-sets="${escapeHTML(JSON.stringify(x.plannedSets||null))}" data-id="${escapeHTML(known?.id||x.id||'custom')}" data-name="${escapeHTML(x.name)}" data-item-kind="${kind}"><div class="editor-exercise-head">${art}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(subtitle)}</small></div>${removeBtn(i,`Eliminar ${x.name||'ejercicio'}`)}</div><div class="editor-values">
  ${num(x.sets??3,1,50,'Series','sets')}${num(x.reps??8,0,1000,'Reps','reps')}${num(x.rir??2,0,10,'RIR','rir')}
  ${num(x.weight??0,0,1000,'Kg','weight',.5)}${num(x.duration??0,0,3600,'Seg.','duration')}
  </div><label class="editor-notes">Indicaciones<input data-editor-field="notes" value="${escapeHTML(x.notes||'')}" maxlength="400" placeholder="Tempo, alternativa…"></label></article>`;
@@ -442,10 +442,12 @@ function readAdvancedStructure(block){
   else roots.push(row);
  }
  const clean=arr=>arr.map(({parent,...rest})=>({...rest,children:clean(rest.children||[])}));
+ const collaboration=get(region,'collaboration')||'solo';
+ const resultMetric=get(region,'resultMetric')||'totalReps';
+ if(!source&&!roots.length&&collaboration==='solo'&&resultMetric==='totalReps')
+  return null;
  return {...(source||{}),version:1,
-   collaboration:get(region,'collaboration')||'solo',
-   resultMetric:get(region,'resultMetric')||'totalReps',
-   phases:clean(roots)};
+   collaboration,resultMetric,phases:clean(roots)};
 }
 const newEditorID=()=>globalThis.crypto?.randomUUID?.()||
  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
@@ -515,6 +517,10 @@ export function readPrescription(form){
    exercises:[...block.querySelectorAll('[data-editor-exercise]')].map(el=>{
     const row={id:el.dataset.id||'custom',name:el.dataset.name||el.querySelector('.exercise-title strong')?.textContent||'',sets:integer(get(el,'sets'),3),reps:integer(get(el,'reps'),8),rir:integer(get(el,'rir'),2),weight:Number(get(el,'weight')||0),duration:integer(get(el,'duration')),notes:get(el,'notes')||''};
     if(el.dataset.originId)row.originId=el.dataset.originId;
+    try {
+     const sets=JSON.parse(el.dataset.plannedSets||'null');
+     if(Array.isArray(sets))row.plannedSets=sets;
+    } catch { /* Old drafts remain compatible. */ }
     if(el.dataset.itemKind==='rest'||isRestMovement(row)){row.id='rest';row.itemKind='rest';row.isRest=true;}
     if(el.dataset.itemKind==='free'){row.itemKind='free';row.source='free';}
     return row;
@@ -809,9 +815,19 @@ function canonicalBlock(b,entries,uid,forceWod){
    entry.reps=Math.max(1,e.reps||1);
    entry.notes=e.notes;
   }else{
-   entry.plannedSets=Array.from({length:Math.min(e.sets,30)},()=>({
-    id:uid(),targetReps:Math.max(1,e.reps||1),
-    targetWeightKg:e.weight||null,targetRir:e.rir
+   // Preserve individual rows and advanced techniques across unrelated edits.
+   const previous=Array.isArray(e.plannedSets)&&e.plannedSets.length===e.sets?e.plannedSets:null;
+   const uniform=previous?.length>0 && previous.every(row=>
+    row.targetReps===previous[0].targetReps &&
+    (row.targetWeightKg??0)===(previous[0].targetWeightKg??0) &&
+    (row.targetRir??2)===(previous[0].targetRir??2));
+   entry.plannedSets=previous?previous.map(row=>({...row})):
+    Array.from({length:Math.min(e.sets,30)},()=>({
+     id:uid(),targetReps:Math.max(1,e.reps||1),
+     targetWeightKg:e.weight||null,targetRir:e.rir
+    }));
+   if(uniform)entry.plannedSets=entry.plannedSets.map(row=>({...row,
+    targetReps:Math.max(1,e.reps||1),targetWeightKg:e.weight||null,targetRir:e.rir
    }));
   }
   return entry;
@@ -828,15 +844,15 @@ function canonicalBlock(b,entries,uid,forceWod){
   canonical.timeCapMinutes=onlyRest?null:(b.timeCap||null);
   if(!onlyRest&&Number.isInteger(b.timeCapSeconds)&&b.timeCapSeconds>0)
    canonical.timeCapSeconds=b.timeCapSeconds;
-  if(!onlyRest&&b.structure&&b.structure.version===1) {
-   const valid=new Set(exercises.map(e=>e.id));
-   const clean=phase=>({
-    ...phase,
-    movementIDs:(phase.movementIDs||[]).filter(id=>valid.has(id)),
-    children:(phase.children||[]).map(clean)
-   });
-   canonical.structure={...b.structure,phases:(b.structure.phases||[]).map(clean)};
-  }
+ }
+ if(!onlyRest&&b.structure&&b.structure.version===1) {
+  const valid=new Set(exercises.map(e=>e.id));
+  const clean=phase=>({
+   ...phase,
+   movementIDs:(phase.movementIDs||[]).filter(id=>valid.has(id)),
+   children:(phase.children||[]).map(clean)
+  });
+  canonical.structure={...b.structure,phases:(b.structure.phases||[]).map(clean)};
  }
  // catalogKey null rompe algunos clientes JSON; solo enviar clave cuando hay catálogo.
  for(const list of [canonical.exercises,canonical.movements]){
@@ -869,6 +885,7 @@ export function visualPrescription(prescription){
     if(e.isRest)return restItem(e.restSeconds||60);
     const free=e.source==='free'||!e.catalogKey;
     return {id:e.catalogKey||'custom',originId:e.id,name:e.name,
+    ...(!wod?{plannedSets:e.plannedSets||null}:{}),
      sets:wod?1:Math.max(1,e.plannedSets?.length||1),
      reps:wod?e.reps||1:e.plannedSets?.[0]?.targetReps||8,
      rir:wod?0:e.plannedSets?.[0]?.targetRir??2,
