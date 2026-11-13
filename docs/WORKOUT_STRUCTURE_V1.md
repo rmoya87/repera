@@ -67,11 +67,38 @@ independiente y no se debe afirmar que existe.
 
 - La recogida OCR sobre fotos en dispositivos físicos y los cambios de
   reloj en tiempo real requieren validación de integración.
-- Las fases avanzadas no sustituyen todavía todas las formas de fuerza
-  especializadas (cluster, dropset, tempo); esas modalidades siguen usando
-  prescripciones de series y notas existentes.
+- Las fases de fuerza ya admiten `WorkoutStrengthTechnique` opcional para
+  superseries, triseries, giant sets, cluster, dropset, rest-pause, tempo
+  e isométricos, con prescripción tipada y conservación en las series.
+  Las métricas de descanso y la ejecución automática de cada subtécnica
+  requieren dispositivos para comprobar su comportamiento efectivo.
 - La validación de esquema MCP debe publicarse junto con la Edge Function
   para habilitar nuevos campos en propuestas remotas. El cambio de GitHub
   por sí solo no despliega Supabase.
 - No se han añadido nuevas tablas ni migraciones destructivas porque la
   estructura opcional viaja en el JSON existente.
+
+## Ampliación transversal — 13/11/2026
+
+- **Resultados por fase y por atleta:** `WorkoutPhaseResult` incluye fase,
+  iteración, atleta 1/2 y movimiento opcional, con repeticiones/rondas/tiempo
+  o medición tipada. Se guarda como `phaseResults[]` junto al resultado
+  anterior del WOD, sin crear una actividad por fase ni confirmar series
+  artificiales. Los resultados antiguos sin esta clave siguen abriendo.
+- **Editar desde Crear/Edit/Play:** editor nativo de fases jerárquicas y
+  técnicas de fuerza en iOS y Android; se conservan metadatos al guardar,
+  reabrir o duplicar.
+- **Comparadores:** incorporan límite exacto y modalidad/estructura; las
+  marcas de carga/calorías/distancia tienen comparación tipada sin convertir
+  kilogramos decimales a repeticiones.
+- **Supabase/MCP:** `schema.ts` admite `plannedSets[].technique` y
+  `structure.phases[].technique`. Se mantienen idénticos los 14
+  identificadores y el contrato de autenticación OAuth vigente.
+- **Persistencia:** no se necesita crear nuevas tablas SQL porque las
+  prescripciones y `wod_results` existentes son JSONB. La función MCP
+  debe desplegarse con todas sus dependencias y el mismo modo de
+  verificación JWT de producción.
+- **Validación física:** comprobar interrupción/continuación en intervalos,
+  dos atletas, series avanzadas, reloj, edición de marcas y sincronización.
+  No dar por validados estos puntos únicamente porque se haya fusionado
+  el código.
