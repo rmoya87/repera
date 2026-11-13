@@ -11,7 +11,8 @@ import org.json.JSONObject
  */
 internal object CompletedWODComparator {
     private val blockFields = listOf(
-        "kind", "wodFormat", "timeCapMinutes", "emomIntervalSeconds",
+        "kind", "wodFormat", "timeCapMinutes", "timeCapSeconds", "structure",
+        "emomIntervalSeconds",
         "rounds", "workSeconds", "restSeconds", "restBetweenRoundsSeconds",
         "wodNotes", "wodTemplateId", "movements"
     )
@@ -47,6 +48,14 @@ internal object CompletedWODComparator {
                 val priorResult = results.getJSONObject(i)
                 val priorBlock = block(session, priorResult.optString("id")) ?: continue
                 val priorAttempt = toComparable(session, priorBlock, priorResult) ?: continue
+                val precise = WODComparisonEngine.compareMeasurement(priorAttempt, currentAttempt)
+                if (precise != null) {
+                    val change = precise.improvement
+                    val display = dev.repera.domain.ReperaNumberFormat.decimal(change)
+                    return if (change == 0.0) "Misma marca en WOD comparable"
+                        else (if (change > 0) "+" else "") + display + " " +
+                            precise.unit + " frente al WOD comparable anterior"
+                }
                 val result = WODComparisonEngine.compare(priorAttempt, currentAttempt) ?: continue
                 val prefix = if (result.improvement > 0) "+" else ""
                 return if (result.improvement == 0) "Misma marca en WOD comparable"
@@ -92,8 +101,11 @@ internal object CompletedWODComparator {
         val signature = blockFields.joinToString("|") { key -> canonical(block.opt(key)) }
         fun intOrNull(key: String): Int? =
             if (result.has(key) && !result.isNull(key)) result.optInt(key) else null
-        val timeCap = if (block.has("timeCapMinutes") && !block.isNull("timeCapMinutes"))
-            block.optInt("timeCapMinutes").takeIf { it > 0 }?.times(60) else null
+        val timeCap = block.optInt("timeCapSeconds").takeIf {
+            block.has("timeCapSeconds") && !block.isNull("timeCapSeconds") && it > 0
+        } ?: block.optInt("timeCapMinutes").takeIf {
+            block.has("timeCapMinutes") && !block.isNull("timeCapMinutes") && it > 0
+        }?.times(60)
         return ComparableWodResult(
             format = format,
             prescriptionFingerprint = signature,
@@ -103,7 +115,11 @@ internal object CompletedWODComparator {
             extraReps = intOrNull("totalReps"),
             elapsedSeconds = intOrNull("elapsedSeconds"),
             repsPerRound = repsPerRound,
-            timeCapSeconds = timeCap
+            timeCapSeconds = timeCap,
+            measuredMetric = result.optString("measuredMetric").takeIf { it.isNotBlank() },
+            measuredValue = result.optDouble("measuredValue").takeIf {
+                result.has("measuredValue") && !result.isNull("measuredValue")
+            }
         )
     }
 
