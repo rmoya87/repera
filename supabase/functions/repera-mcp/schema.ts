@@ -1,12 +1,21 @@
 import { z } from "npm:zod@4.3.6";
 
 // Single source of truth for MCP creation AND pending-plan edits.
+const strengthTechnique = z.strictObject({
+  method: z.enum(["standard", "superset", "triset", "giantSet", "cluster", "dropSet", "restPause", "tempo", "isometric"]),
+  tempo: z.string().regex(/^[0-9Xx]{4}$/).optional(),
+  pauseSeconds: z.number().int().min(0).max(300).optional(),
+  intraSetRestSeconds: z.number().int().min(0).max(300).optional(),
+  clusterReps: z.number().int().min(1).max(100).optional(),
+  dropPercentages: z.array(z.number().finite().min(0).max(100)).max(8).default([]),
+});
 const plannedSet = z.strictObject({
   reps: z.number().int().min(1).max(5000),
   weightKg: z.number().finite().min(0).max(1200).optional(),
   rir: z.number().finite().min(0).max(10).optional(),
   percent1RM: z.number().finite().min(1).max(150).optional(),
   percent1RMIsMinimum: z.boolean().optional(),
+  technique: strengthTechnique.optional(),
 });
 const strengthEntry = z.strictObject({
   name: z.string().trim().min(2).max(120),
@@ -40,6 +49,7 @@ const phaseFields = {
   workSeconds: z.number().int().min(1).max(86400).optional(),
   restSeconds: z.number().int().min(0).max(86400).optional(),
   notes: z.string().max(2000).optional(),
+  technique: strengthTechnique.optional(),
 };
 const nestedPhase = z.strictObject({ ...phaseFields, children: z.array(z.never()).max(0).optional() });
 const workoutPhase = z.strictObject({ ...phaseFields, children: z.array(nestedPhase).max(20).optional() });
@@ -100,17 +110,16 @@ export const wodFormatContract = {
     timer: "progressive_intervals", details: "roundsCompleted indica intervalos superados y totalReps las reps del intervalo incompleto. El reloj permite parar al fallar.",
   },
   maxEffort: {
-    resultCapture: "totalReps", primaryResult: "max_repetitions",
-    timer: "specific_countdown", details: "El score actual de Repera solo admite reps máximas (totalReps).",
-    limitation: "Una marca máxima en kg/calorías/metros aún no dispone de campo de score global en iOS. No inventarla ni convertirla en reps.",
+    resultCapture: "totalReps", primaryResult: "max_reps_or_typed_measurement",
+    timer: "specific_countdown", details: "totalReps para máximos de repeticiones; measuredMetric/measuredValue para kg, kcal o metros; elapsedSeconds para tiempo. No convertir cargas en repeticiones.",
   },
   circuit: {
     resultCapture: "perMovementSets", primaryResult: "sets_per_station",
     timer: "station_intervals_and_round_rests", details: "Registrar estación/movimiento por serie, con descansos configurables entre rondas.",
   },
   partner: {
-    resultCapture: "perMovementSets", primaryResult: "per_movement_sets",
-    timer: "optional_stopwatch", details: "YGIG/Partner se registra por movimientos y series según prescripción.",
+    resultCapture: "perMovementSets", primaryResult: "per_movement_sets_and_team_contributions",
+    timer: "optional_stopwatch", details: "Colaboración opcional en cualquier formato, con resultados por atleta en phaseResults[] (participantIndex 1/2) sin duplicar movimientos ni atribuir trabajo no registrado.",
   },
   roundsForQuality: {
     resultCapture: "perMovementSets", primaryResult: "per_movement_sets",
