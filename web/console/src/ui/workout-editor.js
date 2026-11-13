@@ -353,6 +353,100 @@ function panelForBlock(i,exercises){
  return null;
 }
 
+
+const ADVANCED_PHASE_KINDS={work:'Trabajo',rest:'Descanso',buyIn:'Buy-in',main:'Principal',cashOut:'Cash-out'};
+const ADVANCED_TEAM={solo:'Individual',youGoIGo:'Alternando',synchronized:'Sincronizado',sharedReps:'Reps compartidas',together:'Juntos'};
+const ADVANCED_METHOD={standard:'Normal',superset:'Superserie',triset:'Triserie',giantSet:'Giant set',cluster:'Cluster',dropSet:'Drop set',restPause:'Rest-pause',tempo:'Tempo',isometric:'Isométrico'};
+const ADVANCED_SCORE={totalReps:'Repeticiones',elapsedSeconds:'Tiempo',loadKg:'Carga kg',calories:'Calorías',distanceMeters:'Distancia m'};
+function advancedSelect(choices,current,field){
+ return '<select data-advanced-field="'+field+'">'+Object.entries(choices).map(([k,v])=>
+  '<option value="'+escapeHTML(k)+'"'+(k===current?' selected':'')+'>'+escapeHTML(v)+'</option>').join('')+'</select>';
+}
+function advancedInput(name,key,val,kind='text'){
+ return '<label class="connected-field">'+name+
+  '<input type="'+kind+'" data-advanced-field="'+key+'" value="'+escapeHTML(val??'')+'"></label>';
+}
+function advancedPhaseRows(phases,exercises,level=0,parentID=''){
+ return (phases||[]).map(p=>{
+  const id=p.id||'';
+  const method=p.technique||{};
+  const assignment=(exercises||[]).filter(e=>e.originId).map(e=>
+   '<label class="editor-phase-reference"><input data-advanced-assignment="'+escapeHTML(e.originId)+'" type="checkbox"'+
+    ((p.movementIDs||[]).includes(e.originId)?' checked':'')+'> '+escapeHTML(e.name||'Ejercicio')+'</label>').join('');
+  const row='<div class="editor-block-panel" data-advanced-phase data-advanced-phase-id="'+escapeHTML(id)+
+   '" data-advanced-phase-parent="'+escapeHTML(parentID)+'" data-advanced-phase-level="'+level+'">'+
+   '<div class="editor-picker-head"><strong>'+ (level?'Subfase':'Fase') +'</strong><span class="editor-template-actions">'+
+   '<button type="button" data-editor-action="advanced-up" data-phase-id="'+escapeHTML(id)+'" aria-label="Subir fase">↑</button>'+
+   '<button type="button" data-editor-action="advanced-down" data-phase-id="'+escapeHTML(id)+'" aria-label="Bajar fase">↓</button>'+
+   '<button type="button" data-editor-action="advanced-delete" data-phase-id="'+escapeHTML(id)+'" aria-label="Eliminar fase">×</button></span></div>'+
+   advancedInput('Nombre','title',p.title||'Trabajo principal')+
+   '<label class="connected-field">Tipo'+advancedSelect(ADVANCED_PHASE_KINDS,p.kind||'main','kind')+'</label>'+
+   '<div class="editor-block-settings">'+
+    advancedInput('Repeticiones','repeatCount',p.repeatCount,'number')+
+    advancedInput('Trabajo (s)','workSeconds',p.workSeconds,'number')+
+    advancedInput('Descanso (s)','restSeconds',p.restSeconds,'number')+
+   '</div><label class="connected-field">Método de fuerza'+
+    advancedSelect(ADVANCED_METHOD,method.method||'standard','method')+'</label>'+
+   '<div class="editor-block-settings">'+
+    advancedInput('Tempo','tempo',method.tempo)+
+    advancedInput('Pausa (s)','pauseSeconds',method.pauseSeconds,'number')+
+    advancedInput('Descanso intra-serie (s)','intraSetRestSeconds',method.intraSetRestSeconds,'number')+
+    advancedInput('Cluster reps','clusterReps',method.clusterReps,'number')+
+    advancedInput('Drop porcentajes','dropPercentages',(method.dropPercentages||[]).join(','))+
+   '</div><p class="connected-hint">Ejercicios de esta fase</p>'+
+   '<div class="editor-block-settings">'+(assignment||'<small>Añade ejercicios antes de asignarlos</small>')+'</div>'+
+   advancedInput('Notas','notes',p.notes)+
+   (level===0?'<button type="button" data-editor-action="advanced-subphase" data-phase-id="'+escapeHTML(id)+'">+ Añadir subfase</button>':'')+
+   '</div>';
+  return row+(level<1?advancedPhaseRows(p.children||[],exercises,level+1,id):'');
+ }).join('');
+}
+function advancedStructureMarkup(block){
+ const value=block.structure||{version:1,phases:[]};
+ const summary=(value.phases||[]).length;
+ return '<details class="editor-advanced" data-advanced-structure>'+
+  '<summary>Estructura avanzada · '+summary+' fases</summary>'+
+  '<div class="editor-block-settings">'+
+   '<label class="connected-field">Equipo'+advancedSelect(ADVANCED_TEAM,value.collaboration||'solo','collaboration')+'</label>'+
+   '<label class="connected-field">Resultado'+advancedSelect(ADVANCED_SCORE,value.resultMetric||'totalReps','resultMetric')+'</label>'+
+  '</div>'+advancedPhaseRows(value.phases||[],block.exercises||[])+
+  '<button type="button" class="editor-add" data-editor-action="advanced-add">+ Añadir fase</button>'+
+  '</details>';
+}
+function readAdvancedStructure(block){
+ let source=null;
+ try{source=JSON.parse(block.dataset.workoutStructure||'null');}catch{}
+ const region=block.querySelector('[data-advanced-structure]');
+ if(!region)return source;
+ const get=(node,k)=>node.querySelector('[data-advanced-field="'+k+'"]')?.value;
+ const number=(node,k)=>{const raw=get(node,k);return raw===undefined||raw===''?null:Number(raw);};
+ const rows=[...region.querySelectorAll('[data-advanced-phase]')].map(node=>{
+  const techniqueMethod=get(node,'method')||'standard';
+  const drop=(get(node,'dropPercentages')||'').split(',').map(x=>x.trim()).filter(Boolean).map(Number);
+  const technique=techniqueMethod==='standard'?null:{
+   method:techniqueMethod,dropPercentages:drop,
+   ...Object.fromEntries(['tempo','pauseSeconds','intraSetRestSeconds','clusterReps'].map(k=>[
+    k,k==='tempo'?get(node,k):number(node,k)
+   ]).filter(([,v])=>v!==null&&v!==''&&v!==undefined))};
+  return {id:node.dataset.advancedPhaseId,parent:node.dataset.advancedPhaseParent||'',
+   kind:get(node,'kind')||'main',title:get(node,'title')||'Trabajo principal',
+   movementIDs:[...node.querySelectorAll('[data-advanced-assignment]:checked')].map(el=>el.dataset.advancedAssignment),
+   ...Object.fromEntries(['repeatCount','workSeconds','restSeconds'].map(k=>[k,number(node,k)]).filter(([,v])=>v!==null)),
+   ...(get(node,'notes')?{notes:get(node,'notes')}:{}),
+   ...(technique?{technique}:{}),children:[]};
+ });
+ const byID=new Map(rows.map(row=>[row.id,row]));
+ const roots=[];
+ for(const row of rows){
+  if(row.parent&&byID.has(row.parent))byID.get(row.parent).children.push(row);
+  else roots.push(row);
+ }
+ const clean=arr=>arr.map(({parent,...rest})=>({...rest,children:clean(rest.children||[])}));
+ return {...(source||{}),version:1,
+   collaboration:get(region,'collaboration')||'solo',
+   resultMetric:get(region,'resultMetric')||'totalReps',
+   phases:clean(roots)};
+}
 export function editorMarkup(value=emptyPrescription(),{meta=null,showMeta=false}={}){
  const blocks=Array.isArray(value?.blocks)?value.blocks:[];
  const open=editorUI.pickerBlock;
