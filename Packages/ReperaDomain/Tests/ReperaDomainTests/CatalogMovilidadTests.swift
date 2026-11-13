@@ -4,9 +4,12 @@ import XCTest
 final class CatalogMovilidadTests: XCTestCase {
     func testCatalogHas82UniqueMobilityMovements() {
         let mobility = Catalog.seed().filter { $0.sportTag == "Movilidad" }
-        XCTAssertEqual(mobility.count, 82)
+        // CatalogMovilidad (82) + Enrichment movilidad (1, sin catalogId).
+        XCTAssertEqual(mobility.count, 83)
         XCTAssertEqual(Set(mobility.map(\.name)).count, mobility.count)
-        XCTAssertEqual(Set(mobility.compactMap(\.catalogId)).count, mobility.count)
+        let withCatalogId = mobility.compactMap(\.catalogId)
+        XCTAssertEqual(Set(withCatalogId).count, withCatalogId.count)
+        XCTAssertEqual(withCatalogId.count, 82)
         XCTAssertTrue(mobility.allSatisfy { !$0.instructions.isEmpty && !($0.detailDescription ?? "").isEmpty })
         XCTAssertTrue(mobility.allSatisfy { !$0.muscleGroup.isEmpty && $0.targetMuscle != nil })
     }

@@ -1316,18 +1316,6 @@ struct WorkoutView: View {
             ForEach(workoutBlocks(session)) { block in
                 Section {
                     playBlockSectionBody(block, session: session)
-                } header: {
-                    if workoutBlocks(session).count > 1 {
-                        HStack(spacing: 6) {
-                            Text("Bloque")
-                            if let format = block.format {
-                                Text("· \(format.displayName)")
-                            } else {
-                                Text("· Libre")
-                            }
-                        }
-                        .textCase(nil)
-                    }
                 }
             }
 
@@ -1396,7 +1384,7 @@ struct WorkoutView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Text(block.title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(OG.label)
                 .lineLimit(2)
             Spacer(minLength: 8)
@@ -1427,12 +1415,9 @@ struct WorkoutView: View {
                     }
                 }
             } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                    .frame(width: 38, height: 38)
-                    .glassEffect(.regular.interactive(), in: .circle)
+                OGGlassEllipsisLabel(iconSize: 17)
             }
+            .ogGlassCircleMenu()
             .accessibilityLabel("Opciones de \(block.title)")
         }
         .listRowBackground(OG.surface)
@@ -1461,44 +1446,82 @@ struct WorkoutView: View {
     ) -> some View {
         let entry = session.exercises[index]
         let isCurrent = index == session.currentIndex
+        let isRest = isTimerRestExercise(entry)
         HStack(spacing: 4) {
-            Button {
-                if isCurrent {
-                    exerciseDetailID = entry.exercise.id
-                } else {
-                    store.selectExercise(at: index)
+            HStack(alignment: .top, spacing: 12) {
+                Button {
+                    if !isRest {
+                        exerciseDetailID = entry.exercise.id
+                    }
+                } label: {
+                    if isRest {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(OG.surface2)
+                            Image(systemName: "pause.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(OG.label3)
+                        }
+                        .frame(width: 48, height: 48)
+                        .padding(.top, 2)
+                    } else {
+                        ExerciseThumb(exercise: entry.exercise, size: 48)
+                            .padding(.top, 2)
+                    }
                 }
-            } label: {
-                workoutExerciseRow(entry)
+                .buttonStyle(.plain)
+                .disabled(isRest)
+                .accessibilityLabel(
+                    isRest ? "Descanso" : "Ver ficha de \(store.catalogTitle(for: entry.exercise))"
+                )
+
+                Button {
+                    store.selectExercise(at: index)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(isRest ? "Descanso" : store.catalogTitle(for: entry.exercise))
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                        Text(
+                            isRest
+                                ? "\(entry.restSeconds ?? store.state.settings.defaultRestSeconds) s"
+                                : entry.plannedSets.compactSummary
+                        )
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(OG.label2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Seleccionar ejercicio para registrar series")
             }
-            .buttonStyle(.plain)
-            .accessibilityHint(
-                isCurrent
-                    ? "Ver ficha del ejercicio"
-                    : "Seleccionar ejercicio para registrar series"
-            )
             Menu {
-                Button("Seleccionar ejercicio", systemImage: "checkmark.circle") {
+                if !isRest {
+                    Button("Información", systemImage: "info.circle") {
+                        exerciseDetailID = entry.exercise.id
+                    }
+                }
+                Button("Abrir", systemImage: "checkmark.circle") {
                     store.selectExercise(at: index)
                 }
-                Button("Sustituir ejercicio", systemImage: "arrow.left.arrow.right") {
-                    replacingPlayExercise = PlayReplacementTarget(
-                        blockID: block.id, itemID: entry.id
-                    )
+                if !isRest {
+                    Button("Sustituir ejercicio", systemImage: "arrow.left.arrow.right") {
+                        replacingPlayExercise = PlayReplacementTarget(
+                            blockID: block.id, itemID: entry.id
+                        )
+                    }
                 }
                 Button("Reordenar", systemImage: "arrow.up.arrow.down") {
                     beginPlayReorder()
                 }
+                Divider()
                 Button("Eliminar ejercicio", systemImage: "trash", role: .destructive) {
                     removePlayExercise(block.id, itemID: entry.id)
                 }
             } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                    .frame(width: 38, height: 38)
-                    .glassEffect(.regular.interactive(), in: .circle)
+                OGGlassEllipsisLabel()
             }
+            .ogGlassCircleMenu()
             .accessibilityLabel("Opciones del ejercicio")
         }
         .listRowBackground(OG.surface)
@@ -1572,23 +1595,6 @@ struct WorkoutView: View {
                     .listRowSeparator(.hidden)
             }
         }
-    }
-
-    private func workoutExerciseRow(_ entry: SessionExercise) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ExerciseThumb(exercise: entry.exercise, size: 48)
-                .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(store.catalogTitle(for: entry.exercise))
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                Text(entry.plannedSets.compactSummary)
-                    .font(.caption)
-                    .foregroundStyle(OG.label2)
-            }
-            Spacer(minLength: 6)
-        }
-        .contentShape(Rectangle())
     }
 
     /// El resultado permanece visible dentro del bloque, sin desplegable.

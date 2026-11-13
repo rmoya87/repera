@@ -63,6 +63,7 @@ targets:
           - PlusHubView.swift
           - SessionDetailSkeleton.swift
           - ProgressHubSkeleton.swift
+          - LaunchFaceSplashView.swift
           - Analytics/ReperaAnalytics.swift
           - StrengthBenchmarkCard.swift
           - StrengthContributionSubmitter.swift

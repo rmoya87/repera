@@ -77,6 +77,7 @@ internal fun ActiveWorkoutScreen(
     activeEditorDraft: () -> RoutineEntry? = { null },
     onApplyActivePlan: (String, String, List<RoutineBlockDraft>, () -> Unit) -> Unit = { _, _, _, _ -> },
     catalog: List<ExerciseEntry> = emptyList(),
+    onOpenExercise: (String) -> Unit = {},
     onSubstituteExercise: (ExerciseEntry) -> Unit = {},
     onRemoveExercise: () -> Unit = {},
     clockMinimized: Boolean = false,
@@ -523,11 +524,8 @@ internal fun ActiveWorkoutScreen(
             }
             val selectedLocal = blockIndexes.indexOf(workout.index).takeIf { it >= 0 }
             item(key = "play-block-${block.blockId ?: bi}") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (playBlocks.size > 1) {
-                        ReperaSectionTitle(block.title.ifBlank { "Bloque ${bi + 1}" })
-                    }
-                    BlockEditorCard(
+                // Nombre solo dentro de la card (grande); sin título duplicado fuera.
+                BlockEditorCard(
                         block = block,
                         nameById = nameById,
                         exercises = catalog,
@@ -539,7 +537,7 @@ internal fun ActiveWorkoutScreen(
                             }
                         },
                         onOpenReorder = { beginPlayReorder() },
-                        onOpenExercise = { },
+                        onOpenExercise = onOpenExercise,
                         effortUnit = effortUnit,
                         playCompactEntries = true,
                         includeEntries = true,
@@ -599,7 +597,6 @@ internal fun ActiveWorkoutScreen(
                             }
                         },
                     )
-                }
             }
         }
         item {

@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-11-13 (Lite: RFT+TC conserva rondas; MAX CAL/MAX ROUNDS no roban cabeceras; BUY-IN y N ROUNDS OF abren formato; WARM UP descrito = fuerza)
+Última actualización: 2026-11-13 (Lite: WARMUP suelto en WOD abierto = notes; RFT+TC; MAX CAL; BUY-IN)
 
 ## Objetivo
 
@@ -68,6 +68,7 @@ Limitación: no es comprensión general; formatos muy raros dependen de la IA o 
 - Pareja ejercicio + `Max (n) reps` = max effort; **no** ante `MAX CAL …` ni `MAX ROUNDS OF …` (no robar `AMRAP` / buy-in).
 - Cabeceras exactas `BUY-IN` / `N ROUNDS OF` abren formato aunque también figuren como ruido no-ejercicio.
 - `WARM UP SHOULDERS` (y similares) son cabecera de fuerza; no section label que deje solo `SHOULDERS`.
+- `WARMUP` / `WARM UP` / `CALENTAMIENTO` exactos **dentro de un WOD abierto** son notes (no flush a STRENGTH); standalone `WARMUP\n3x8 …` sí abre fuerza.
 - `1mn Rest between AMRAPs` → normalizar `MN`→`MIN` antes de leer el descanso entre rondas.
 - Contrato JVM: `BoardScanLiteParserTest` / `BoardScanGlobalFixturesTest` en `:domain:testDebugUnitTest`.
 

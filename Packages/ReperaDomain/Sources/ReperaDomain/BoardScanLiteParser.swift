@@ -142,6 +142,14 @@ public enum BoardScanLiteParser {
                 continue
             }
             if Self.isSectionLabel(line) {
+                // Bare WARMUP/CALENTAMIENTO inside an open WOD is OCR noise
+                // (notes), not a new section that would flush AMRAP/EMOM.
+                // Standalone "WARMUP\n3x8 …" still starts a block when current==nil.
+                let warmOnly = ["WARM UP", "WARMUP", "CALENTAMIENTO"].contains(upper)
+                if current != nil && warmOnly {
+                    current?.body.append(line)
+                    continue
+                }
                 flush()
                 sectionTitle = line
                 continue
@@ -362,7 +370,9 @@ public enum BoardScanLiteParser {
         let upper = raw.uppercased()
         if raw.isEmpty { return true }
         if ["OF", "SETS", "REPS", "BUY IN", "BUY OUT", "BUY-IN", "BUY-OUT",
-            "CIRCUITO", "CIRCUIT"].contains(upper) { return true }
+            "CIRCUITO", "CIRCUIT", "WARM UP", "WARMUP", "CALENTAMIENTO"].contains(upper) {
+            return true
+        }
         if upper.hasPrefix("▶") || upper.hasPrefix("►") ||
            upper.hasPrefix("HTTP://") || upper.hasPrefix("HTTPS://") ||
            upper.hasPrefix("WWW.") || upper.contains("YOUTUBE.COM/") ||

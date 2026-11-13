@@ -1438,6 +1438,7 @@ fun ReperaMobileScreen(
                             activeEditorDraft = activeEditorDraft,
                             onApplyActivePlan = onUpdateActivePlan,
                             catalog = overview?.exerciseEntries.orEmpty(),
+                            onOpenExercise = { id -> navController.navigate("ejercicio/$id") },
                             onSubstituteExercise = onSubstituteActiveExercise,
                             onRemoveExercise = onRemoveActiveExercise,
                             clockMinimized = clockMinimized,

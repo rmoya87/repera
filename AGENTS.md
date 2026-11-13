@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-13 (Splash cara estática; sin idle animado).
+Última actualización: 2026-11-13 (BoardScan WARMUP en WOD abierto = notes).
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -183,6 +183,13 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - `detectHeader` (BUY-IN, `N ROUNDS OF`) antes de saltar `isNonExerciseLine`; `WARM UP SHOULDERS` no es section label.
 - `1mn Rest between…` → `exerciseText` (`MN`→`MIN`) al leer `restBetweenRoundsSeconds`.
 - Contrato: `tests/test_board_scan_lite_header_contract.py` + `:domain:testDebugUnitTest` BoardScan*.
+
+#### BoardScan Lite — WARMUP suelto no tumba AMRAP (13/11/2026)
+- `WARMUP` / `WARM UP` / `CALENTAMIENTO` exactos son section label → STRENGTH, pero **dentro de un WOD abierto** son ruido OCR (notes), no `flush()` a fuerza (`AMRAP 10'\nWARMUP\n2 AIR SQUAT` sigue AMRAP).
+- Standalone `WARMUP\n3x8 …` con `current==null` sigue abriendo STRENGTH. También en `isNonExerciseLine`.
+- Contrato: `tests/test_board_scan_lite_header_contract.py::test_bare_warmup_inside_open_wod_stays_notes_not_strength_section`,
+  `BoardScanImportTest.exactWarmupNoiseIsNotesNotWireMovement`,
+  `BoardScanLiteParserTest.exactWarmupNoiseDoesNotBecomeExerciseOrBlockExplicitStrength`.
 
 #### Splash — solo cara estática, sin idle animado (13/11/2026)
 - El storyboard nativo **no anima**. Párpados/`Canvas` o idle GIF/WebP con

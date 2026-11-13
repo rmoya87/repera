@@ -195,6 +195,13 @@ object BoardScanLiteParser {
             }
             val section=if (isWarmUpHeader(line)) null else sectionLabel(line)
             if(section!=null || upper=="PULLING STRENGTH & POWER") {
+                // Bare WARMUP/CALENTAMIENTO inside an open WOD is OCR noise
+                // (notes), not a new STRENGTH section that would flush AMRAP.
+                // Standalone "WARMUP\n3x8 …" still starts strength when current==null.
+                if (current != null && upper in setOf("WARM UP", "WARMUP", "CALENTAMIENTO")) {
+                    current!!.body.add(line)
+                    continue
+                }
                 flush()
                 sectionTitle=section ?: line
                 pendingSectionFormat=if(upper.startsWith("METCON") || upper.startsWith("MET CON") || upper.startsWith("CONDITION") || upper.startsWith("CONDICION")) WODFormat.FOR_TIME else WODFormat.STRENGTH
@@ -415,7 +422,7 @@ object BoardScanLiteParser {
         val upper=raw.uppercase(Locale.ROOT)
         if(raw.isEmpty()) return true
         if(upper in setOf("OF","SETS","REPS","BUY IN","BUY OUT","BUY-IN","BUY-OUT",
-                         "CIRCUITO","CIRCUIT")) return true
+                         "CIRCUITO","CIRCUIT","WARM UP","WARMUP","CALENTAMIENTO")) return true
         if(listOf("▶","►","HTTP://","HTTPS://","WWW.").any{upper.startsWith(it)} ||
            upper.contains("YOUTUBE.COM/") || upper.contains("YOUTU.BE/")) return true
         if(listOf("CAP: 4 INTERVALOS","REALIZA AMBOS","NO TOUCH","RETOMA ",

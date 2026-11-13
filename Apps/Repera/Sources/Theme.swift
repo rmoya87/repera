@@ -1534,6 +1534,29 @@ struct OGReorderDragPreview<Content: View>: View {
     }
 }
 
+/// Label ⋯ circular para `Menu` con morph Liquid Glass (mismo tamaño que opciones de bloque).
+struct OGGlassEllipsisLabel: View {
+    var size: CGFloat = 38
+    var iconSize: CGFloat = 16
+
+    var body: some View {
+        Image(systemName: "ellipsis")
+            .font(.system(size: iconSize, weight: .semibold))
+            .foregroundStyle(OG.label)
+            .frame(width: size, height: size)
+            .contentShape(Circle())
+    }
+}
+
+extension View {
+    /// Morph nativo del ⋯ a la ventana de opciones, forzando círculo (no cápsula).
+    func ogGlassCircleMenu() -> some View {
+        self
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+    }
+}
+
 /// Botón de icono en top bar.
 /// En la barra del sistema no aplicar glass (iOS ya pone el círculo); en cabeceras
 /// custom del contenido usar `appliesGlass: true`. SF Symbols sin `.circle` embebido.

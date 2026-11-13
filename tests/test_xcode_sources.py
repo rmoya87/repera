@@ -34,6 +34,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "OGDuoContextRail.swift").write_text("// Duo layout detection", encoding="utf-8")
         (directory / "SessionDetailSkeleton.swift").write_text("// Session detail skeleton", encoding="utf-8")
         (directory / "ProgressHubSkeleton.swift").write_text("// Progress hub skeleton", encoding="utf-8")
+        (directory / "LaunchFaceSplashView.swift").write_text("// Face splash", encoding="utf-8")
         (directory / "StrengthBenchmarkCard.swift").write_text("// Strength benchmarks card", encoding="utf-8")
         (directory / "StrengthContributionSubmitter.swift").write_text("// Strength contributions", encoding="utf-8")
         (directory / "StrengthBenchmarkRemoteStore.swift").write_text("// Strength remote store", encoding="utf-8")
@@ -65,6 +66,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "      - path: Apps/Repera/Sources/OGDuoContextRail.swift\n"
             "      - path: Apps/Repera/Sources/SessionDetailSkeleton.swift\n"
             "      - path: Apps/Repera/Sources/ProgressHubSkeleton.swift\n"
+            "      - path: Apps/Repera/Sources/LaunchFaceSplashView.swift\n"
             "      - path: Apps/Repera/Sources/StrengthBenchmarkCard.swift\n"
             "      - path: Apps/Repera/Sources/StrengthContributionSubmitter.swift\n"
             "      - path: Apps/Repera/Sources/StrengthBenchmarkRemoteStore.swift\n"
@@ -97,6 +99,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "OGDuoContextRail.swift",
             "SessionDetailSkeleton.swift",
             "ProgressHubSkeleton.swift",
+            "LaunchFaceSplashView.swift",
             "StrengthBenchmarkCard.swift",
             "StrengthContributionSubmitter.swift",
             "StrengthBenchmarkRemoteStore.swift",
@@ -350,6 +353,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
                      "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift",
                      "OGDuoContextRail.swift", "SessionDetailSkeleton.swift",
                      "ProgressHubSkeleton.swift",
+                     "LaunchFaceSplashView.swift",
                      "StrengthBenchmarkCard.swift"):
             source = self.root / "Apps/Repera/Sources" / name
             original = source.read_text(encoding="utf-8")
@@ -363,6 +367,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
                      "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift",
                      "OGDuoContextRail.swift", "SessionDetailSkeleton.swift",
                      "ProgressHubSkeleton.swift",
+                     "LaunchFaceSplashView.swift",
                      "StrengthBenchmarkCard.swift"):
             pbx = self.pbx.read_text(encoding="utf-8")
             self.pbx.write_text(pbx.replace(f"{name} in Sources", ""), encoding="utf-8")

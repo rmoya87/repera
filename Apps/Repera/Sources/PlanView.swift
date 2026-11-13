@@ -373,7 +373,7 @@ struct DayEditorView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         HStack(spacing: 10) {
                             TextField("Nombre", text: $routine.blocks[index].title)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 20, weight: .bold))
                             Menu {
                                 Button {
                                     showsReorder = true
@@ -398,12 +398,9 @@ struct DayEditorView: View {
                                     Label("Eliminar bloque", systemImage: "trash")
                                 }
                             } label: {
-                                Image(systemName: "ellipsis")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                    .frame(width: 38, height: 38)
-                                    .glassEffect(.regular.interactive(), in: .circle)
+                                OGGlassEllipsisLabel()
                             }
+                            .ogGlassCircleMenu()
                             .accessibilityLabel("Opciones del bloque \(block.title)")
                         }
                         Divider()
@@ -424,8 +421,6 @@ struct DayEditorView: View {
                     } else {
                         wodBlock(index: index)
                     }
-                } header: {
-                    Text(block.title)
                 }
             }
 
@@ -925,9 +920,23 @@ struct DayEditorView: View {
         }
     }
 
-    private func exerciseOptions(blockID: UUID, itemID: UUID, isWOD: Bool, isRest: Bool = false) -> some View {
+    private func exerciseOptions(
+        blockID: UUID,
+        itemID: UUID,
+        isWOD: Bool,
+        isRest: Bool = false,
+        exerciseID: UUID? = nil
+    ) -> some View {
         let kind = isWOD ? "movement" : "exercise"
         return Menu {
+            if let exerciseID, !isRest {
+                Button("Información", systemImage: "info.circle") {
+                    exerciseDetailID = exerciseID
+                }
+            }
+            Button("Abrir", systemImage: "checkmark.circle") {
+                expandedEntryID = itemID
+            }
             if !isRest {
                 Button("Sustituir ejercicio", systemImage: "arrow.left.arrow.right") {
                     replacingExercise = WorkoutReplacementTarget(
@@ -943,12 +952,9 @@ struct DayEditorView: View {
                 deleteReorderExercise(type: kind, blockID: blockID, itemID: itemID)
             }
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(OG.label)
-                .frame(width: 38, height: 38)
-                .glassEffect(.regular.interactive(), in: .circle)
+            OGGlassEllipsisLabel()
         }
+        .ogGlassCircleMenu()
         .accessibilityLabel("Opciones del ejercicio")
     }
 
@@ -2037,15 +2043,18 @@ extension DayEditorView {
                 ?? completedDetails?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
                 let isExpanded = expandedEntryID == item.id
                 HStack(spacing: 4) {
-                    Button {
-                        if isExpanded {
+                    HStack(alignment: .top, spacing: 12) {
+                        Button {
                             exerciseDetailID = ex.id
-                        } else {
-                            expandedEntryID = item.id
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
+                        } label: {
                             ExerciseThumb(exercise: ex, size: 48)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Ver ficha de \(ex.name)")
+
+                        Button {
+                            expandedEntryID = item.id
+                        } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(ex.name)
                                     .font(.system(size: 17, weight: .semibold))
@@ -2059,10 +2068,15 @@ extension DayEditorView {
                                 }
                             }
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Editar series")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityHint(isExpanded ? "Ver ficha del ejercicio" : "Editar series")
-                    exerciseOptions(blockID: routine.blocks[index].id, itemID: item.id, isWOD: false)
+                    exerciseOptions(
+                        blockID: routine.blocks[index].id,
+                        itemID: item.id,
+                        isWOD: false,
+                        exerciseID: ex.id
+                    )
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
 
@@ -2490,50 +2504,66 @@ extension DayEditorView {
                         completedWODScalingFields(movementID: move.id, exercise: resolved)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    exerciseOptions(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
+                    exerciseOptions(
+                        blockID: routine.blocks[index].id,
+                        itemID: move.id,
+                        isWOD: true,
+                        exerciseID: hasCatalog ? resolved.id : nil
+                    )
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(.vertical, 5)
             } else {
+                let isExpanded = expandedEntryID == move.id
                 HStack(spacing: 4) {
-                    Group {
+                    HStack(alignment: .top, spacing: 12) {
                         if hasCatalog {
                             Button {
-                                if expandedEntryID == move.id {
-                                    exerciseDetailID = resolved.id
-                                } else {
-                                    expandedEntryID = move.id
-                                }
+                                exerciseDetailID = resolved.id
                             } label: {
-                                movementRowLabel(move: move, resolved: resolved, showSummary: false)
+                                movementThumb(move: move, resolved: resolved)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityHint(
-                                expandedEntryID == move.id
-                                    ? "Ver ficha del ejercicio" : "Editar series"
-                            )
-                        } else if move.isRest {
-                            Button {
-                                expandedEntryID = expandedEntryID == move.id ? nil : move.id
-                            } label: {
-                                movementRowLabel(move: move, resolved: resolved, showSummary: false)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint(
-                                expandedEntryID == move.id
-                                    ? "Contraer descanso" : "Editar segundos de descanso"
-                            )
+                            .accessibilityLabel("Ver ficha de \(resolved.name)")
                         } else {
-                            Button {
-                                expandedEntryID = move.id
-                            } label: {
-                                movementRowLabel(move: move, resolved: resolved, showSummary: false)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint("Editar series")
+                            movementThumb(move: move, resolved: resolved)
                         }
+
+                        Button {
+                            if move.isRest {
+                                expandedEntryID = isExpanded ? nil : move.id
+                            } else {
+                                expandedEntryID = move.id
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(move.isRest ? "Descanso" : resolved.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                if !isExpanded {
+                                    Text(move.summaryLine)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(OG.label2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint(
+                            move.isRest
+                                ? (isExpanded ? "Contraer descanso" : "Editar segundos de descanso")
+                                : "Editar series"
+                        )
                     }
-                    exerciseOptions(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true, isRest: move.isRest)
+                    exerciseOptions(
+                        blockID: routine.blocks[index].id,
+                        itemID: move.id,
+                        isWOD: true,
+                        isRest: move.isRest,
+                        exerciseID: hasCatalog ? resolved.id : nil
+                    )
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
             }
@@ -2554,24 +2584,6 @@ extension DayEditorView {
                     .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
                     .listRowSeparator(.hidden, edges: .top)
                     .accessibilityLabel("Segundos de descanso")
-                } else {
-                    Button {
-                        expandedEntryID = move.id
-                    } label: {
-                        HStack {
-                            Text("\(move.restSeconds ?? 60) s")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(OG.label2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(OG.label3)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Editar segundos de descanso")
-                    .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
-                    .listRowSeparator(.hidden, edges: .top)
                 }
             } else if isEditingCompletedWorkout,
                       let format = routine.blocks[index].wodFormat,
@@ -2590,24 +2602,6 @@ extension DayEditorView {
                         presentUndoToast(message: message, undo: undo)
                     }
                 )
-                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
-                .listRowSeparator(.hidden, edges: .top)
-            } else if !move.isRest {
-                Button {
-                    expandedEntryID = move.id
-                } label: {
-                    HStack {
-                        Text(move.summaryLine)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(OG.label2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(OG.label3)
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Editar series de \(move.name)")
                 .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
                 .listRowSeparator(.hidden, edges: .top)
             }
@@ -2638,34 +2632,21 @@ extension DayEditorView {
     }
 
     @ViewBuilder
-    private func movementRowLabel(move: WODMovement, resolved: Exercise, showSummary: Bool = true) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            if move.isRest {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(OG.surface2)
-                    Image(systemName: "pause.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(OG.label3)
-                }
-                .frame(width: 48, height: 48)
-            } else {
-                ExerciseThumb(exercise: resolved, size: 48)
+    private func movementThumb(move: WODMovement, resolved: Exercise) -> some View {
+        if move.isRest {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(OG.surface2)
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(OG.label3)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(move.isRest ? "Descanso" : resolved.name)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                if showSummary {
-                    Text(move.summaryLine)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            Spacer(minLength: 0)
+            .frame(width: 48, height: 48)
+        } else {
+            ExerciseThumb(exercise: resolved, size: 48)
         }
     }
+
 }
 
 /// El editor WOD inserta las series dentro de una única fila de Form.

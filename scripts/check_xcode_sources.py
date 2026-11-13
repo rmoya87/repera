@@ -114,6 +114,7 @@ def validate(root: Path) -> None:
                  "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift",
                  "OGDuoContextRail.swift", "SessionDetailSkeleton.swift",
                  "ProgressHubSkeleton.swift",
+                 "LaunchFaceSplashView.swift",
                  "StrengthBenchmarkCard.swift",
                  "StrengthContributionSubmitter.swift",
                  "StrengthBenchmarkRemoteStore.swift"):

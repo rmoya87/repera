@@ -439,29 +439,26 @@ fun RoutineBlocksEditorScreen(
         }
         blocks.forEachIndexed { index, block ->
             item(key = "block-hdr-${block.listKey}") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val sectionTitle = block.title.ifBlank { "Bloque ${index + 1}" }
-                    ReperaSectionTitle(sectionTitle)
-                    BlockEditorCard(
-                        block = block,
-                        nameById = nameById,
-                        exercises = exercises,
-                        loadGuideProvider = loadGuideProvider,
-                        onRemove = {
-                            editorTouched = true
-                            blocks.removeAt(index)
-                        },
-                        onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
-                        onOpenExercise = onOpenExercise,
-                        effortUnit = effortUnit,
-                        includeEntries = true,
-                        includeFooterActions = true,
-                        expandedEntryId = expandedEntryId,
-                        onExpandedEntryIdChange = { expandedEntryId = it },
-                        onOfferUndo = offerUndo,
-                        recentExerciseIds = recentExerciseIds,
-                    )
-                }
+                // Nombre solo dentro de la card (grande); sin título duplicado fuera.
+                BlockEditorCard(
+                    block = block,
+                    nameById = nameById,
+                    exercises = exercises,
+                    loadGuideProvider = loadGuideProvider,
+                    onRemove = {
+                        editorTouched = true
+                        blocks.removeAt(index)
+                    },
+                    onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
+                    onOpenExercise = onOpenExercise,
+                    effortUnit = effortUnit,
+                    includeEntries = true,
+                    includeFooterActions = true,
+                    expandedEntryId = expandedEntryId,
+                    onExpandedEntryIdChange = { expandedEntryId = it },
+                    onOfferUndo = offerUndo,
+                    recentExerciseIds = recentExerciseIds,
+                )
             }
         }
         item(key = "editor-actions") {
@@ -1089,8 +1086,7 @@ internal fun BlockEditorCard(
     ReperaCard(modifier = Modifier.fillMaxWidth().testTag("plan_block_card")) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Play (con temporizador): fila más alta y tipografía/iconos mayores
-            // para que título + reloj + ⋯ destaquen; Crear/Editar sin cambio.
+            // Título grande dentro de la card (paridad iOS); Play: fila/iconos mayores.
             val playHeader = onTimer != null
             val headerIconSize = if (playHeader) 44.dp else 34.dp
             val headerGlyphSize = if (playHeader) 22.dp else 18.dp
@@ -1107,18 +1103,11 @@ internal fun BlockEditorCard(
                 BasicTextField(
                     value = block.title,
                     onValueChange = { block.title = it },
-                    textStyle = if (playHeader) {
-                        MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 20.sp
-                        )
-                    } else {
-                        MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
+                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 20.sp
+                    ),
                     singleLine = true,
                     modifier = Modifier.weight(1f).testTag("plan_block_title")
                 )
@@ -1742,6 +1731,7 @@ internal fun PlayCompactEntryRow(
     summary: String = "",
     exercise: ExerciseEntry? = null,
     isRest: Boolean = false,
+    onOpenDetail: (() -> Unit)? = null,
     onOpenReorder: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
     onSubstitute: (() -> Unit)? = null,
@@ -1755,23 +1745,32 @@ internal fun PlayCompactEntryRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
-            Modifier
-                .weight(1f)
-                .clickable(onClick = onClick),
+            Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (isRest) {
-                RestListThumb()
+            val thumbModifier = if (!isRest && onOpenDetail != null) {
+                Modifier.clickable(onClick = onOpenDetail)
             } else {
-                ExerciseListThumb(
-                    name = exercise?.name ?: name,
-                    sportTag = exercise?.sportTag,
-                    aliases = emptyMap(),
-                    artKeys = exercise?.artKeys.orEmpty(),
-                )
+                Modifier
             }
-            Column(Modifier.weight(1f)) {
+            Box(thumbModifier) {
+                if (isRest) {
+                    RestListThumb()
+                } else {
+                    ExerciseListThumb(
+                        name = exercise?.name ?: name,
+                        sportTag = exercise?.sportTag,
+                        aliases = emptyMap(),
+                        artKeys = exercise?.artKeys.orEmpty(),
+                    )
+                }
+            }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clickable(onClick = onClick)
+            ) {
                 // Paridad iOS: nombre en negro (OG.label), no verde al seleccionar.
                 Text(
                     name,
@@ -1809,8 +1808,14 @@ internal fun PlayCompactEntryRow(
                 }
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                onOpenDetail?.let {
+                    DropdownMenuItem(
+                        text = { Text("Información") },
+                        onClick = { menuOpen = false; it() }
+                    )
+                }
                 DropdownMenuItem(
-                    text = { Text("Seleccionar ejercicio") },
+                    text = { Text("Abrir") },
                     onClick = { menuOpen = false; onClick() }
                 )
                 onSubstitute?.let {
@@ -1826,6 +1831,7 @@ internal fun PlayCompactEntryRow(
                     )
                 }
                 onRemove?.let {
+                    HorizontalDivider()
                     DropdownMenuItem(
                         text = { Text("Eliminar ejercicio", color = MaterialTheme.colorScheme.error) },
                         onClick = { menuOpen = false; it() }
@@ -1843,6 +1849,7 @@ internal fun CompactEntrySummaryRow(
     onClick: () -> Unit,
     exercise: ExerciseEntry? = null,
     isRest: Boolean = false,
+    onOpenDetail: (() -> Unit)? = null,
     onOpenReorder: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
 ) {
@@ -1856,34 +1863,46 @@ internal fun CompactEntrySummaryRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
-            Modifier
-                .weight(1f)
-                .clickable(onClick = onClick),
+            Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (isRest) {
-                RestListThumb()
+            val thumbModifier = if (!isRest && onOpenDetail != null) {
+                Modifier.clickable(onClick = onOpenDetail)
             } else {
-                ExerciseListThumb(
-                    name = exercise?.name ?: name,
-                    sportTag = exercise?.sportTag,
-                    aliases = emptyMap(),
-                    artKeys = exercise?.artKeys.orEmpty(),
-                )
+                Modifier
             }
-            Column(Modifier.weight(1f)) {
+            Box(thumbModifier) {
+                if (isRest) {
+                    RestListThumb()
+                } else {
+                    ExerciseListThumb(
+                        name = exercise?.name ?: name,
+                        sportTag = exercise?.sportTag,
+                        aliases = emptyMap(),
+                        artKeys = exercise?.artKeys.orEmpty(),
+                    )
+                }
+            }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clickable(onClick = onClick)
+                    .testTag("plan_entry_compact_text")
+            ) {
                 Text(
                     name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2
                 )
-                Text(
-                    summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (summary.isNotBlank()) {
+                    Text(
+                        summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         Box {
@@ -1906,8 +1925,14 @@ internal fun CompactEntrySummaryRow(
                 }
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                onOpenDetail?.let {
+                    DropdownMenuItem(
+                        text = { Text("Información") },
+                        onClick = { menuOpen = false; it() }
+                    )
+                }
                 DropdownMenuItem(
-                    text = { Text("Editar series") },
+                    text = { Text("Abrir") },
                     onClick = { menuOpen = false; onClick() }
                 )
                 onOpenReorder?.let {
@@ -1917,6 +1942,7 @@ internal fun CompactEntrySummaryRow(
                     )
                 }
                 onRemove?.let {
+                    HorizontalDivider()
                     DropdownMenuItem(
                         text = { Text("Eliminar ejercicio", color = MaterialTheme.colorScheme.error) },
                         onClick = { menuOpen = false; it() }
@@ -1955,6 +1981,9 @@ internal fun BlockEntryEditorSlot(
         else -> nameById[entry.exerciseId] ?: "Ejercicio"
     }
     val ex = exercisesById[entry.exerciseId]
+    val openDetail = entry.exerciseId.takeIf { it.isNotBlank() && !isRest }?.let { id ->
+        { onOpenExercise(id) }
+    }
     if (playCompactEntries) {
         PlayCompactEntryRow(
             name = resolved,
@@ -1963,6 +1992,7 @@ internal fun BlockEntryEditorSlot(
             summary = entry.compactSummary(),
             exercise = ex,
             isRest = isRest,
+            onOpenDetail = openDetail,
             onOpenReorder = onOpenReorder,
             onRemove = onRemoveEntry,
         )
@@ -1976,6 +2006,7 @@ internal fun BlockEntryEditorSlot(
             onClick = { expandHandler(entryKey) },
             exercise = ex,
             isRest = isRest,
+            onOpenDetail = openDetail,
             onOpenReorder = onOpenReorder,
             onRemove = onRemoveEntry,
         )
@@ -1998,9 +2029,7 @@ internal fun BlockEntryEditorSlot(
         onRemove = onRemoveEntry,
         onOfferUndo = onOfferUndo,
         onOpenReorder = onOpenReorder,
-        onOpenDetail = entry.exerciseId.takeIf { it.isNotBlank() }?.let { id ->
-            { onOpenExercise(id) }
-        },
+        onOpenDetail = openDetail,
         exerciseEntry = ex,
         effortUnit = effortUnit,
         onCollapse = expandHandler?.let { handler -> { handler(null) } }
@@ -2070,30 +2099,32 @@ private fun EntryEditorRow(
         ) {
             val openDetail = onOpenDetail
             Row(
-                Modifier
-                    .weight(1f)
-                    .then(
-                        if (openDetail != null) Modifier.clickable(onClick = openDetail)
-                        else Modifier
-                    ),
+                Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (isRest) {
-                    RestListThumb()
-                } else if (exerciseEntry != null) {
-                    ExerciseListThumb(
-                        name = exerciseEntry.name,
-                        sportTag = exerciseEntry.sportTag,
-                        aliases = emptyMap(),
-                        artKeys = exerciseEntry.artKeys,
-                    )
+                val thumbModifier = if (!isRest && openDetail != null) {
+                    Modifier.clickable(onClick = openDetail)
                 } else {
-                    ExerciseListThumb(
-                        name = resolvedName,
-                        sportTag = null,
-                        aliases = emptyMap()
-                    )
+                    Modifier
+                }
+                Box(thumbModifier) {
+                    if (isRest) {
+                        RestListThumb()
+                    } else if (exerciseEntry != null) {
+                        ExerciseListThumb(
+                            name = exerciseEntry.name,
+                            sportTag = exerciseEntry.sportTag,
+                            aliases = emptyMap(),
+                            artKeys = exerciseEntry.artKeys,
+                        )
+                    } else {
+                        ExerciseListThumb(
+                            name = resolvedName,
+                            sportTag = null,
+                            aliases = emptyMap()
+                        )
+                    }
                 }
                 Text(
                     if (isRest) "Descanso" else resolvedName,
@@ -2123,6 +2154,12 @@ private fun EntryEditorRow(
                     }
                 }
                 DropdownMenu(expanded = entryMenu, onDismissRequest = { entryMenu = false }) {
+                    onOpenDetail?.let {
+                        DropdownMenuItem(
+                            text = { Text("Información") },
+                            onClick = { entryMenu = false; it() }
+                        )
+                    }
                     onCollapse?.let { collapse ->
                         DropdownMenuItem(
                             text = { Text("Contraer") },
@@ -2135,9 +2172,10 @@ private fun EntryEditorRow(
                             onClick = { entryMenu = false; it() }
                         )
                     }
+                    HorizontalDivider()
                     DropdownMenuItem(
                         text = {
-                            Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                            Text("Eliminar ejercicio", color = MaterialTheme.colorScheme.error)
                         },
                         onClick = { entryMenu = false; onRemove() }
                     )

@@ -13,8 +13,11 @@ class LiveRowEditTest {
   assertNull(LiveRowEdit.effort(base,"","rir").rir);assertEquals(3.0,LiveRowEdit.effort(base,"3","rir").rir!!,0.0)
   assertNull(LiveRowEdit.effort(base,"11","rpe").rir);assertNull(LiveRowEdit.effort(base,"-1","rir").rir)
  }
- @Test fun draftRowsKeepIdsAndCompletedFlag() {
+ @Test fun draftRowsKeepIdsAndMarkWrittenSetsCompleted() {
+  // Auditoría 2 / Play: sin checks; reps>0 se persisten como completed.
   val r=LiveRowEdit.toDraftRows(listOf(base,base.copy(id="c",completed=true)))
-  assertEquals(listOf("r","c"),r.map {it.id});assertEquals(listOf(false,true),r.map {it.completed});assertEquals(8,r[0].reps);assertEquals(40.0,r[0].weightKg!!,0.0)
+  assertEquals(listOf("r","c"),r.map {it.id})
+  assertEquals(listOf(true,true),r.map {it.completed})
+  assertEquals(8,r[0].reps);assertEquals(40.0,r[0].weightKg!!,0.0)
  }
 }

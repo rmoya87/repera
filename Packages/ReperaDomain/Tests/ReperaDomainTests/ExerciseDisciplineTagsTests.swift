@@ -25,8 +25,8 @@ final class ExerciseDisciplineTagsTests: XCTestCase {
                        "La mancuerna no es una arrancada olímpica con barra")
 
         let weightlifting = Catalog.seed().filter { $0.sportTag == "Halterofilia" }
-        // 48 olímpicos + 9 fuerza Enrichment (sentadilla/peso muerto/press militar…).
-        XCTAssertEqual(weightlifting.count, 57)
+        // 48 olímpicos + 11 fuerza Enrichment (sentadilla/peso muerto/press militar…).
+        XCTAssertEqual(weightlifting.count, 59)
         XCTAssertTrue(weightlifting.allSatisfy { $0.disciplineTags.contains("CrossFit") })
     }
 
@@ -37,8 +37,8 @@ final class ExerciseDisciplineTagsTests: XCTestCase {
         check("Burpee", includes: ["CrossFit", "Gimnasia"])
 
         let gymnastics = Catalog.seed().filter { $0.sportTag == "Gimnasia" }
-        // 58 gimnasia pura + 6 Enrichment (dominadas/fondos/plancha…).
-        XCTAssertEqual(gymnastics.count, 64)
+        // 58 gimnasia pura + 11 Enrichment (dominadas/fondos/plancha…).
+        XCTAssertEqual(gymnastics.count, 69)
         XCTAssertTrue(gymnastics.allSatisfy { $0.disciplineTags.contains("CrossFit") })
     }
 
@@ -67,7 +67,7 @@ final class ExerciseDisciplineTagsTests: XCTestCase {
         let mobility = exercise("Gato-vaca")
         XCTAssertEqual(mobility.disciplineTags, ["Movilidad"])
         let all = Catalog.seed()
-        XCTAssertEqual(all.count, 447)
+        XCTAssertEqual(all.count, 476)
         XCTAssertEqual(Set(all.map(\.id)).count, all.count)
         XCTAssertEqual(Set(all.map(\.name)).count, all.count)
         XCTAssertTrue(all.allSatisfy { $0.disciplineTags.count == Set($0.disciplineTags).count })

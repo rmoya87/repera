@@ -105,8 +105,9 @@ class UnifiedGPSContracts(unittest.TestCase):
         self.assertIn("public var navigation: NavigationCue?", self.attributes)
         self.assertIn("navigation: navigation", self.live)
         self.assertIn("navigation: phase == .completed ? nil : navigation", self.activity)
-        self.assertIn("navigationStrip(cue, compact: true)", self.widget)
-        self.assertIn("navigationStrip(cue, compact: false)", self.widget)
+        # Isla expandida + bloqueo: ambas usan compact (altura ActivityKit).
+        self.assertGreaterEqual(self.widget.count("navigationStrip(cue, compact: true)"), 2)
+        self.assertIn("private func navigationStrip(", self.widget)
         self.assertIn("lockMetric(value: timer(context.state)", self.widget)
         self.assertIn("islandMetric(value: timer(context.state)", self.widget)
 
