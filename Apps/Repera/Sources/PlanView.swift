@@ -410,6 +410,7 @@ struct DayEditorView: View {
                             .overlay(OG.label3.opacity(0.25))
                             .padding(.vertical, 5)
                         formatSettings(index: index)
+                        WorkoutStructureEditorView(block: $routine.blocks[index])
                         Divider()
                             .overlay(OG.label3.opacity(0.25))
                             .padding(.vertical, 5)
