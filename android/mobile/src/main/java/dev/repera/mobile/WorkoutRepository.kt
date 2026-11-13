@@ -2444,7 +2444,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 .put("kind", if (wod) "wod" else "strength").put("exercises", JSONArray()).put("movements", JSONArray())
             val format = dev.repera.domain.ProfessionalWodFormat.normalize(prescribed.optString("wodFormat"))
             if (format.isNotEmpty() && format != "null") block.put("wodFormat", format)
-            listOf("rounds", "timeCapMinutes").forEach { key ->
+            // Preserve v1 composable phases, exact caps and per-set methods
+            // from trainer/MCP prescriptions. These are opt-in JSON fields.
+            listOf("rounds", "timeCapMinutes", "timeCapSeconds", "structure",
+                   "emomIntervalSeconds", "workSeconds", "restSeconds",
+                   "restBetweenRoundsSeconds", "wodNotes").forEach { key ->
                 if (prescribed.has(key) && !prescribed.isNull(key)) block.put(key, prescribed.get(key))
             }
             val entries = prescribed.optJSONArray(if (wod) "movements" else "exercises") ?: JSONArray()
@@ -2478,7 +2482,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     val set = planned.getJSONObject(k)
                     set.put("targetReps", set.optInt("targetReps").coerceAtLeast(0))
                 }
-                val item = JSONObject().put("id", entry.getString("id")).put("exerciseId", resolved.getString("id"))
+                val item = JSONObject().put("id", entry.optString("id").ifBlank {
+                    UUID.randomUUID().toString()
+                }).put("exerciseId", resolved.getString("id"))
                 if (wod) {
                     item.put("name", resolved.getString("name"))
                     listOf("reps", "notes").forEach { key ->
@@ -2492,6 +2498,29 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                             JSONObject().put("id", UUID.randomUUID().toString())
                                 .put("targetReps", entry.optInt("reps").coerceAtLeast(0))
                         )
+                    }
+                    val phaseGraph = prescribed.optJSONObject("structure")
+                        ?.optJSONArray("phases")
+                    if (phaseGraph != null) {
+                        fun inherited(phases: JSONArray): JSONObject? {
+                            for (i in 0 until phases.length()) {
+                                val phase = phases.getJSONObject(i)
+                                val child = inherited(phase.optJSONArray("children") ?: JSONArray())
+                                if (child != null) return child
+                                val assigned = phase.optJSONArray("movementIDs") ?: JSONArray()
+                                if ((0 until assigned.length()).any {
+                                    assigned.optString(it) == item.getString("id")
+                                }) return phase.optJSONObject("technique")
+                            }
+                            return null
+                        }
+                        val technique = inherited(phaseGraph)
+                        if (technique != null) {
+                            for (i in 0 until planned.length()) {
+                                val set = planned.getJSONObject(i)
+                                if (!set.has("technique")) set.put("technique", technique)
+                            }
+                        }
                     }
                     item.put("plannedSets", planned)
                     block.getJSONArray("exercises").put(item)
