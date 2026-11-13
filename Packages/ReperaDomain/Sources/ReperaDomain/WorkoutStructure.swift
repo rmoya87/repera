@@ -151,6 +151,20 @@ public struct WorkoutStructure: Codable, Sendable, Hashable {
         self.phases = phases
     }
 
+    /// Technique for a strength exercise, inherited from the innermost
+    /// matching phase; an individual PlannedSet override still takes priority.
+    public func technique(for itemID: UUID) -> WorkoutStrengthTechnique? {
+        func scan(_ phases: [WorkoutPhase]) -> WorkoutStrengthTechnique? {
+            for phase in phases {
+                if let nested = scan(phase.children) { return nested }
+                if phase.movementIDs.contains(itemID), let technique = phase.technique,
+                   technique.isValid { return technique }
+            }
+            return nil
+        }
+        return scan(phases)
+    }
+
     /// Never mutate source exercises just because a referenced movement was
     /// deleted in Create/Edit. Consumers ignore stale IDs instead.
     public func activeMovementIDs(in block: RoutineBlock) -> Set<UUID> {
