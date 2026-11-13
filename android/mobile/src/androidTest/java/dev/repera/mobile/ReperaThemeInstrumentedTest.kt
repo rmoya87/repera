@@ -138,11 +138,33 @@ class ReperaThemeInstrumentedTest {
                         onCreateRoutine={_,_,_,_,_,_,_,_,_,_->},onAddWodTemplate={},onOpenBoardScan={},
                         onOpenTimer={},onInitializeLocal={},onImportJson={},onDriveSync={},onExportJson={},onSignOut={})
                     10 -> ActiveWorkoutScreen(
-                        ActiveWorkout(id="theme-active",title="Pierna",index=0,total=1,
+                        workout = ActiveWorkout(id="theme-active",title="Pierna",index=0,total=1,
                             exerciseName="Sentadilla",completedSets=0,prescribedQuantity=5,
                             prescribedWeightKg=80.0,allowsWeight=true,sets=emptyList()),
-                        false,null,{},{},{_,_,_->},{_,_,_,_->},{},{_,_,_->},{},
-                        {_,_,_,_,_,_,_,_->},{_,_,_,_,_->},{_,_,_,_->},{_,_,_,_,_,_->},{},{},{},{},{},{},null,account,{})
+                        busy = false,
+                        timer = null,
+                        onTimerAction = {},
+                        onTimerTick = {},
+                        onWodScore = { _, _, _ -> },
+                        onWodMovement = { _, _, _, _ -> },
+                        onCompleteWodBlock = {},
+                        onReviseWodMovement = { _, _, _ -> },
+                        onDeleteWodMovement = {},
+                        onLogSet = { _, _, _, _, _, _, _, _ -> },
+                        onLogDropSet = { _, _, _, _, _ -> },
+                        onLogRestPauseSet = { _, _, _, _ -> },
+                        onReviseSet = { _, _, _, _, _, _ -> },
+                        onDeleteSet = {},
+                        onNext = {},
+                        onFinish = {},
+                        onDiscard = {},
+                        onOpenClock = {},
+                        onBack = {},
+                        pin = null,
+                        accountId = account,
+                        onPinChange = {},
+                        onOpenExercise = {},
+                    )
                     5 -> Column(Modifier.padding(16.dp)) {
                         FinishedWorkoutEditorSection(overview.completeHistory.first(),account,false, onSave = {})
                     }
