@@ -67,12 +67,10 @@ jobs:
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           gradle-version: '9.6.0'
-      - name: Unit tests for Play metadata and publisher safeguards
-        run: python3 -m unittest discover -s android/scripts -p 'test_*play*.py' -v
-      - name: Domain parity tests + native builds
-        run: gradle -p android :domain:testDebugUnitTest :wear:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug --no-daemon --stacktrace
-      - name: Android mobile complete JVM unit suite
-        run: gradle -p android :mobile:testDebugUnitTest --no-daemon --stacktrace
+      - name: Play preflight (JVM + androidTest compile; fuente única)
+        env:
+          PLAY_PREFLIGHT_USE_SYSTEM_GRADLE: '1'
+        run: bash scripts/play_preflight.sh
       - name: Upload JVM test reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -70,12 +70,21 @@ En `~/.gradle/gradle.properties`:
 REPERA_GOOGLE_WEB_CLIENT_ID=el_id_del_cliente_web
 ```
 
-No subir secretos ni keys de servidor a Git. Ejecutar:
+No subir secretos ni keys de servidor a Git.
+
+**Antes de Play / `origin/beta`** (fuente única; no basta `assembleDebug`):
+
+```shell
+bash scripts/play_preflight.sh
+# push a origin/main → esperar workflow «Play gate» verde
+bash scripts/promote_to_beta.sh   # o --skip-local si el preflight ya corrió
+```
+
+Emuladores (opcional en local; obligatorios en CI beta):
 
 ```shell
 cd android
-gradle :domain:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug
-gradle :mobile:connectedDebugAndroidTest
+./gradlew :mobile:connectedDebugAndroidTest
 ```
 
 **Validación:** CI `39931372564` aprobado: compilación de mobile/wear,

@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-13 (BoardScan WARMUP en WOD abierto = notes).
+Última actualización: 2026-11-13 (Play gate: preflight local + CI en main antes de beta).
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -155,6 +155,18 @@ OCR → Apple Intelligence si hay → si no, `BoardImportParser`. Detalle: `docs
 ## Commits / PR
 
 Solo cuando el usuario lo pida. Seguir las reglas git/PR del entorno.
+
+## Despliegue Play (obligatorio)
+
+Compilar la app **no** basta para Play. Antes de tocar `origin/beta`:
+
+1. Local: `bash scripts/play_preflight.sh` (suite JVM + `compileDebugAndroidTestKotlin`).
+2. Push a `origin/main` y esperar workflow **Play gate** verde.
+3. Promover: `bash scripts/promote_to_beta.sh` (o `--skip-local` si el preflight
+   ya corrió). **Prohibido** `git push origin main:beta` a ciegas.
+
+`android-native-ci.yml` (emuladores + `deploy-internal-beta`) solo en push a
+`beta`. Contrato: `tests/test_play_deploy_gate_contract.py`.
 
 ## Aprender de fallos (obligatorio)
 
@@ -447,9 +459,13 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - **CI Play:** `android-native-ci.yml` en push solo `origin/beta` (no `main`).
   Deploy Play = job `deploy-internal-beta`. Contrato:
   `tests/test_android_wear_ci_disk_contract.py`.
+- **Gate antes de beta (13/11/2026):** `scripts/play_preflight.sh` + workflow
+  `Play gate` en `main` + `scripts/promote_to_beta.sh`. Incluye
+  `compileDebugAndroidTestKotlin` (fallo típico que `assembleDebug` no pillaba).
+  Contrato: `tests/test_play_deploy_gate_contract.py`.
 
 #### Android — suite JVM completa y advertencias de Robolectric (10/11/2026)
-- **Compilación verde no equivale a tests verdes**: `android-native` compila móvil/Wear y después ejecuta `:mobile:testDebugUnitTest`; una ejecución registró 814 tests y 60 fallos, agrupados en 31 clases. No eliminar aserciones ni excluir tests para acelerar la subida a Play.
+- **Compilación verde no equivale a tests verdes**: `android-native` / `play_preflight` ejecutan `:mobile:testDebugUnitTest`; una ejecución registró 814 tests y 60 fallos, agrupados en 31 clases. No eliminar aserciones ni excluir tests para acelerar la subida a Play.
 - Eliminar `!!` solo porque Kotlin avisa puede romper la compilación cuando el tipo sigue siendo `String?`: usar `requireNotNull(value)` o una rama nula explícita, y compilar `:domain:compileDebugUnitTestKotlin` antes de darlo por corregido.
 - Robolectric `AndroidInterceptors.FileDescriptorInterceptor` puede lanzar `IllegalAccessException` al acceder a `jdk.internal.access.SharedSecrets` en JDK recientes: configurar `--add-exports=java.base/jdk.internal.access=ALL-UNNAMED` para JVM de tests, sin añadirlo a APK/AAB.
 - El catálogo virgen debe compararse mediante el digest canónico de **la versión realmente empaquetada** de `catalog_seed.json`; un digest obsoleto bloquea la reconciliación segura. Nunca flexibilizar la coincidencia ni descartar datos de usuario solo para hacer pasar la prueba.
