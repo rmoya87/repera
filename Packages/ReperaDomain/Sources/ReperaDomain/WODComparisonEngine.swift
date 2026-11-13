@@ -36,6 +36,8 @@ public enum WODComparisonEngine {
               let format = a.wodFormat, format == b.wodFormat,
               previous.result.format == format, current.result.format == format,
               a.timeCapMinutes == b.timeCapMinutes,
+              a.timeCapSeconds == b.timeCapSeconds,
+              equivalentStructure(a.structure, b.structure, a: a, b: b),
               a.emomIntervalSeconds == b.emomIntervalSeconds,
               a.rounds == b.rounds,
               a.workSeconds == b.workSeconds,
@@ -78,18 +80,66 @@ public enum WODComparisonEngine {
             return WODComparison(previousScore: previous.result.summaryLabel,
                                  currentScore: current.result.summaryLabel,
                                  improvement: new - old, unit: "reps")
+        case .maxEffort:
+            guard let metric = previous.result.measuredMetric,
+                  metric == current.result.measuredMetric,
+                  [.loadKg, .calories, .distanceMeters].contains(metric),
+                  let before = previous.result.measuredValue,
+                  let after = current.result.measuredValue,
+                  before.isFinite, after.isFinite, before > 0, after > 0,
+                  // Numeric comparison is exact for whole units; fractionally
+                  // precise loads are reported through the typed comparison API.
+                  before.rounded() == before, after.rounded() == after,
+                  before < Double(Int.max), after < Double(Int.max) else { return nil }
+            return WODComparison(
+                previousScore: previous.result.summaryLabel,
+                currentScore: current.result.summaryLabel,
+                improvement: Int(after - before),
+                unit: metric == .loadKg ? "kg" : metric == .calories ? "kcal" : "metros"
+            )
         case .forTime, .afap, .chipper:
             guard let old = previous.result.elapsedSeconds,
                   let new = current.result.elapsedSeconds,
                   old > 0, new > 0 else { return nil }
             // Without explicit completion evidence, a time-cap result cannot be ranked.
-            if let cap = a.timeCapMinutes, (old >= cap * 60 || new >= cap * 60) { return nil }
+            if let cap = a.effectiveTimeCapSeconds, (old >= cap || new >= cap) { return nil }
             return WODComparison(previousScore: previous.result.summaryLabel,
                                  currentScore: current.result.summaryLabel,
                                  improvement: old - new, unit: "segundos")
         default:
             return nil
         }
+    }
+
+    /// UUIDs of independently authored copies are intentionally ignored.
+    /// Compare actual work grouping and timings instead of the generated IDs.
+    private static func equivalentStructure(_ a: WorkoutStructure?,
+                                            _ b: WorkoutStructure?,
+                                            a original: RoutineBlock,
+                                            b compared: RoutineBlock) -> Bool {
+        if a == nil && b == nil { return true }
+        guard let a, let b, a.version == b.version,
+              a.section == b.section,
+              a.collaboration == b.collaboration,
+              a.resultMetric == b.resultMetric,
+              a.phases.count == b.phases.count else { return false }
+        let positionsA = Dictionary(uniqueKeysWithValues:
+            original.movements.enumerated().map { ($0.element.id, $0.offset) })
+        let positionsB = Dictionary(uniqueKeysWithValues:
+            compared.movements.enumerated().map { ($0.element.id, $0.offset) })
+        func samePhase(_ p: WorkoutPhase, _ q: WorkoutPhase) -> Bool {
+            guard p.kind == q.kind, p.repeatCount == q.repeatCount,
+                  p.workSeconds == q.workSeconds, p.restSeconds == q.restSeconds,
+                  p.technique == q.technique, p.children.count == q.children.count,
+                  p.movementIDs.count == q.movementIDs.count else { return false }
+            let groupA = p.movementIDs.compactMap { positionsA[$0] }
+            let groupB = q.movementIDs.compactMap { positionsB[$0] }
+            guard groupA.count == p.movementIDs.count,
+                  groupB.count == q.movementIDs.count,
+                  groupA == groupB else { return false }
+            return zip(p.children, q.children).allSatisfy { samePhase($0.0, $0.1) }
+        }
+        return zip(a.phases, b.phases).allSatisfy { samePhase($0.0, $0.1) }
     }
 
     private static func equivalent(_ a: WODMovement, _ b: WODMovement) -> Bool {
