@@ -1812,6 +1812,20 @@ struct WorkoutView: View {
                         .tint(OG.accent)
                     }
                 }
+                WorkoutStructureEditorView(block: Binding(
+                    get: {
+                        store.state.activeSession?.routineBlocks?
+                            .first(where: { $0.id == block.id })
+                            ?? routineForEditing()?.blocks.first(where: { $0.id == block.id })
+                            ?? block
+                    },
+                    set: { updated in
+                        mutatePlayRoutine { draft in
+                            guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                            draft.blocks[index] = updated
+                        }
+                    }
+                ))
                 Divider().padding(.vertical, 5)
             }
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 10, trailing: 16))
