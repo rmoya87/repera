@@ -47,6 +47,9 @@ object BoardScanImport {
         set.targetRir?.let { item.put("targetRir", it) }
         set.targetPercent1RM?.let { item.put("targetPercent1RM", it) }
         if (set.targetPercent1RMIsMinimum) item.put("targetPercent1RMIsMinimum", true)
+        set.technique?.takeIf { it.isValid }?.let {
+            item.put("technique", WorkoutStructureWire.encodeTechnique(it))
+        }
         return item
     }
 
