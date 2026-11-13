@@ -36,10 +36,19 @@ object BoardScanLiteParser {
         var pendingSectionFormat:WODFormat?=null
         var intervalDescription: String? = null
         var current: Current? = null
+        // Coaching noise before the first real line (SETS/REPS/…) stays in wodNotes.
+        val pendingLeadingNoise = mutableListOf<String>()
+
+        fun consumeLeadingNoise(): MutableList<String> {
+            if (pendingLeadingNoise.isEmpty()) return mutableListOf()
+            val seed = pendingLeadingNoise.toMutableList()
+            pendingLeadingNoise.clear()
+            return seed
+        }
 
         fun flush() {
             val cur = current ?: return
-            val exerciseLines=cur.body.filterNot {isNonExerciseLine(it)}
+            val exerciseLines=cur.body.filterNot {isNonExerciseLine(it) || it.trim().length<2}
             if(exerciseLines.isEmpty()) { current=null; return }
             val orphanStrength=if(cur.header=="Añadir entreno" || cur.format==WODFormat.STRENGTH)
                 BoardStrengthLines.block(exerciseLines,catalog)?.also {it.title=cur.header;it.wodNotes=(listOf(cur.originalHeader,cur.header).distinct()+cur.body).joinToString("\n")} else null
@@ -77,7 +86,7 @@ object BoardScanLiteParser {
                 if(wave!=null) {
                     activeWave=wave
                     emptyList()
-                } else if(isNonExerciseLine(raw)) {
+                } else if(isNonExerciseLine(raw) || raw.trim().length<2) {
                     emptyList()
                 } else {
                     val segments=simpleComplexMovements(exerciseText(raw),searchAliases,catalog)
@@ -98,22 +107,27 @@ object BoardScanLiteParser {
                     }
                 }
             }
-            // 'REST BTWN' describe el descanso *entre* pasadas, no un ejercicio
-            // extra al final de la última. Se preserva la anotación original.
+            // 'REST BTWN' / "Rest entre AMRAPs" describe el descanso *entre*
+            // pasadas: anotar restBetween y no dejarlo como movimiento extra.
+            // Un "1' REST" explícito en un RFT sí permanece en la lista (y
+            // también rellena restBetweenRoundsSeconds).
             if(cur.format==WODFormat.FOR_TIME && block.restBetweenRoundsSeconds==null) {
                 block.movements.firstOrNull {it.isRest}?.let {block.restBetweenRoundsSeconds=it.restSeconds}
             }
             if(cur.format==WODFormat.AMRAP || cur.format==WODFormat.FOR_TIME) {
-                cur.body.firstOrNull {
+                val restAnnotation=cur.body.firstOrNull {
                     val u=it.uppercase(Locale.ROOT)
-                    (u.contains("BETWEEN") || u.contains("ENTRE AMRAP") ||
-                     u.contains("ENTRE RONDAS")) &&
+                    (u.contains("BETWEEN") || u.contains("BTWN") ||
+                     u.contains("ENTRE AMRAP") || u.contains("ENTRE RONDAS")) &&
                     (u.contains("REST") || u.contains("DESCANSO"))
-                }?.let {
-                    val rest=movement(it,searchAliases)
+                }
+                restAnnotation?.let {
+                    val rest=movement(exerciseText(it),searchAliases)
                     if(rest.isRest) block.restBetweenRoundsSeconds=rest.restSeconds
                 }
-                if(block.restBetweenRoundsSeconds!=null) {
+                // Solo quitar el REST del listado cuando es nota entre rondas
+                // (BTWN/BETWEEN/entre…), no un "1' REST" explícito del RFT.
+                if(restAnnotation!=null) {
                     block.movements=block.movements.filterNot {it.isRest}
                 }
             }
@@ -126,14 +140,16 @@ object BoardScanLiteParser {
         val officialExercises=catalogIndex(catalog)
         for ((lineIndex,line) in rawLines.withIndex()) {
             val upper = line.uppercase(Locale.ROOT)
-            if(lineIndex+1<rawLines.size && rawLines[lineIndex+1].uppercase(Locale.ROOT).startsWith("MAX ") &&
-               sectionLabel(line)==null) {
+            // "Squat snatch / Max (n) reps" is max-effort. Do not steal
+            // format headers before "MAX CAL …" or "MAX ROUNDS OF …".
+            if(lineIndex+1<rawLines.size && isMaxEffortContinuation(rawLines[lineIndex+1]) &&
+               sectionLabel(line)==null && detectHeader(line)==null) {
                 flush()
                 sectionTitle=line
                 continue
             }
             val pendingMaxTitle=sectionTitle
-            if(upper.startsWith("MAX ") && !upper.startsWith("MAX ROUNDS") &&
+            if(isMaxEffortContinuation(line) &&
                pendingMaxTitle!=null && sectionLabel(pendingMaxTitle)==null) {
                 val ex=officialExercises[norm(pendingMaxTitle)]
                     ?: officialExercises[norm(CrossFitGlossary.canonicalName(pendingMaxTitle))]
@@ -184,18 +200,15 @@ object BoardScanLiteParser {
                 pendingSectionFormat=if(upper.startsWith("METCON") || upper.startsWith("MET CON") || upper.startsWith("CONDITION") || upper.startsWith("CONDICION")) WODFormat.FOR_TIME else WODFormat.STRENGTH
                 continue
             }
-            if(current!=null && Regex("""^\d+\s+(?:ROUNDS?|RONDAS?)\b""", RegexOption.IGNORE_CASE)
-                    .containsMatchIn(line) && !upper.contains("FOR TIME") && !upper.contains("RFT")) {
+            // Solo cabeceras de rondas ("5 ROUNDS", "20 ROUNDS (ALTERNANDO)"),
+            // no movimientos tipo "5 ROUND THE WORLD".
+            if(current!=null && Regex(
+                    """^\d+\s+(?:ROUNDS|RONDAS)(?:\s+OF)?(?:\s*\([^)]*\))?\s*$""",
+                    RegexOption.IGNORE_CASE
+                ).matches(upper) && detectHeader(line)==null) {
                 current!!.rounds=Regex("""^\d+""").find(line)?.value?.toIntOrNull()
                 current!!.body.add(line)
                 continue
-            }
-            if(isNonExerciseLine(line)) {
-                // Only a bare rep wave outside For Time can start a ladder.
-                if(standaloneWave(line)==null || current?.format==WODFormat.FOR_TIME) {
-                    current?.body?.add(line)
-                    continue
-                }
             }
             // Clock in the OCR corner and bare numeric noise are not exercises.
             if(Regex("^\\d{1,2}:\\d{2}$").matches(line) || Regex("^[\\d.,]+$").matches(line)) continue
@@ -206,6 +219,7 @@ object BoardScanLiteParser {
             }
             // Bare quality labels start a format only before a block exists.
             // Inside EMOM they remain annotations, preserving the Lite OCR path.
+            // Format headers (BUY-IN, N ROUNDS OF, …) win over isNonExerciseLine.
             val header = if(current==null && upper in setOf("FOR QUALITY","RFQ","ROUNDS FOR QUALITY"))
                 Header(line,WODFormat.ROUNDS_FOR_QUALITY,null) else detectHeader(line)
             if (header != null) {
@@ -218,11 +232,18 @@ object BoardScanLiteParser {
                     flush()
                     val title = listOfNotNull(sectionTitle, intervalDescription, header.title)
                         .joinToString(" · ")
+                    val body = consumeLeadingNoise()
                     current = Current(title, header.format, header.cap, header.rounds,
-                        header.interval, mutableListOf(),originalHeader=line)
+                        header.interval, body,originalHeader=line)
                     sectionTitle = null
                     pendingSectionFormat=null
                     intervalDescription = null
+                }
+            } else if (isNonExerciseLine(line)) {
+                // Only a bare rep wave outside For Time can start a ladder.
+                if(standaloneWave(line)==null || current?.format==WODFormat.FOR_TIME) {
+                    if (current != null) current!!.body.add(line)
+                    else pendingLeadingNoise.add(line)
                 }
             } else if (isQualityAnnotation(line)) {
                 // Vision puede separar «EMOM 9' @FOR QUALITY» en @FOR + QUALITY.
@@ -236,7 +257,9 @@ object BoardScanLiteParser {
             } else {
                 val pendingSection=sectionTitle
                 val sectionFormat=pendingSectionFormat ?: WODFormat.CHIPPER
-                current = Current(pendingSection ?: "Añadir entreno",sectionFormat,null,null,null,mutableListOf(line))
+                val body = consumeLeadingNoise()
+                body.add(line)
+                current = Current(pendingSection ?: "Añadir entreno",sectionFormat,null,null,null,body)
                 sectionTitle=null
                 pendingSectionFormat=null
             }
@@ -376,6 +399,17 @@ object BoardScanLiteParser {
                 upper.contains("TABATA"))
     }
 
+    /** Continuation after an exercise title: "Max (n) reps", not "MAX CAL ROW"
+     * or coaching "MAX ROUNDS OF …". */
+    private fun isMaxEffortContinuation(line:String):Boolean {
+        val upper=line.trim().uppercase(Locale.ROOT)
+        if(!upper.startsWith("MAX ")) return false
+        if(upper.startsWith("MAX ROUNDS") || upper.startsWith("MAX CAL") ||
+           upper.startsWith("MAX DIST") || upper.startsWith("MAX METERS") ||
+           upper.startsWith("MAX WALL") || upper.startsWith("MAX BOX")) return false
+        return true
+    }
+
     private fun isNonExerciseLine(line:String):Boolean {
         val raw=line.trim()
         val upper=raw.uppercase(Locale.ROOT)
@@ -387,14 +421,16 @@ object BoardScanLiteParser {
         if(listOf("CAP: 4 INTERVALOS","REALIZA AMBOS","NO TOUCH","RETOMA ",
                   "CONTINUA ","CONTINÚA ","MAX ROUNDS OF").any{upper.startsWith(it)} ||
            upper.contains("I GO YOU GO") || upper.contains("YOU GO I GO")) return true
-        if(!upper.contains("FOR TIME") && !upper.contains("RFQ") &&
-           Regex("""^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?|ROUNDS?\s+\d+)\b""").containsMatchIn(upper)) return true
+        // Línea entera de metadatos de rondas — no "5 ROUND THE WORLD".
+        if(!upper.contains("FOR TIME") && !upper.contains("RFQ") && !upper.contains("FOR QUALITY") &&
+           Regex("""^(?:\d+\s+(?:ROUNDS|RONDAS)(?:\s+OF)?(?:\s*\([^)]*\))?|ROUNDS?\s+\d+)\s*$""")
+               .matches(upper)) return true
         if(Regex("""^\d+(?:\s*[-–]\s*\d+){2,}\s*$""").matches(upper)) return true
         if((raw.startsWith("*") || raw.startsWith("•")) &&
            !Regex("""^[*•]\s*\d+\s*(?:M\b|CAL\b|[A-Z])""",RegexOption.IGNORE_CASE).containsMatchIn(raw)) return true
         if((upper.contains("REST") || upper.contains("DESCANSO")) &&
-           (upper.contains("BETWEEN") || upper.contains("ENTRE AMRAP") ||
-            upper.contains("ENTRE RONDAS"))) return true
+           (upper.contains("BETWEEN") || upper.contains("BTWN") ||
+            upper.contains("ENTRE AMRAP") || upper.contains("ENTRE RONDAS"))) return true
         return false
     }
 
@@ -414,7 +450,18 @@ object BoardScanLiteParser {
     private fun sectionLabel(line:String):String? {
         val upper=line.uppercase(Locale.ROOT)
         val labels=listOf("WEIGHTLIFTING","WEIGHT LIFTING","HALTEROFILIA","HALTERO","METCON","MET CON","CONDITIONING","CONDICIONAMIENTO","GYMNASTICS","GIMNASIA","STRENGTH","FUERZA","SKILL","TECH","WOD","WORKOUT","ACCESSORY WORK","ACCESSORIES","WARM UP","WARMUP","CALENTAMIENTO")
-        val label=labels.sortedByDescending {it.length}.firstOrNull {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:") || upper.startsWith("$it\"") || upper.startsWith("$it“") || upper.startsWith("$it«")} ?: return null
+        // Warm-up titles like "WARM UP SHOULDERS" are STRENGTH headers, not
+        // section labels that strip the prefix (parity with iOS isSectionLabel).
+        val warmUpOnly=setOf("WARM UP","WARMUP","CALENTAMIENTO")
+        val label=labels.sortedByDescending {it.length}.firstOrNull { candidate ->
+            upper==candidate || (
+                candidate !in warmUpOnly && (
+                    upper.startsWith("$candidate ") || upper.startsWith("$candidate:") ||
+                    upper.startsWith("$candidate\"") || upper.startsWith("$candidate“") ||
+                    upper.startsWith("$candidate«")
+                )
+            )
+        } ?: return null
         Regex("[\"“«](.+?)[\"”»]").find(line)?.groupValues?.get(1)?.takeIf {it.isNotBlank()}?.let {return it}
         return line.drop(label.length).trim().trim(':','-','\"').trim().ifBlank {line}
     }
@@ -454,8 +501,11 @@ object BoardScanLiteParser {
             return Header(line,WODFormat.FOR_TIME,null,rounds=rounds)
         }
         // Named workouts like "WODSITO (TC35')" are blocks, not exercises.
+        // Do not steal "4 RFT (TC 12')" before the RFT rounds handler.
         if(Regex("""\bTC\s*[:=]?\s*\d+""").containsMatchIn(upper) &&
-           !listOf("EVERY","FOR TIME","RFT","AMRAP").any {upper.startsWith(it)}) {
+           !listOf("EVERY","FOR TIME","RFT","AMRAP").any {upper.startsWith(it)} &&
+           !Regex("""\d+\s*RF[TF]\b""").containsMatchIn(upper) &&
+           !upper.contains("FOR TIME") && !upper.contains("FOR COMPLETION")) {
             val cap=Regex("""TC\s*[:=]?\s*(\d+)""").find(upper)
                 ?.groupValues?.get(1)?.toIntOrNull()
             return Header(line,WODFormat.FOR_TIME,cap)

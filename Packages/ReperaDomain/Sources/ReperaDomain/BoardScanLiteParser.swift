@@ -91,15 +91,17 @@ public enum BoardScanLiteParser {
         for (lineIndex, line) in rawLines.enumerated() {
             let upper = line.uppercased()
             // "Squat snatch / Max (n) reps" is a max-effort block, not
-            // a second exercise called "Max (n) reps".
+            // a second exercise called "Max (n) reps". Do not steal format
+            // headers before "MAX CAL …" or coaching "MAX ROUNDS OF …".
             if rawLines.indices.contains(lineIndex + 1),
-               rawLines[lineIndex + 1].uppercased().hasPrefix("MAX "),
-               !Self.isSectionLabel(line) {
+               Self.isMaxEffortContinuation(rawLines[lineIndex + 1]),
+               !Self.isSectionLabel(line),
+               detectHeader(line) == nil {
                 flush()
                 sectionTitle = line
                 continue
             }
-            if upper.hasPrefix("MAX "), !upper.hasPrefix("MAX ROUNDS"),
+            if Self.isMaxEffortContinuation(line),
                let title = sectionTitle, !Self.isSectionLabel(title) {
                 let exercise = officialExercises[Self.norm(title)] ??
                     officialExercises[Self.norm(CrossFitGlossary.canonicalName(for: title))]
@@ -340,6 +342,19 @@ public enum BoardScanLiteParser {
         return ["QUALITY", "FOR QUALITY", "FQ", "RFQ", "FOR"].contains(normalized)
     }
 
+    /// Continuation after an exercise title: "Max (n) reps", not "MAX CAL ROW"
+    /// or coaching "MAX ROUNDS OF …".
+    private static func isMaxEffortContinuation(_ line: String) -> Bool {
+        let upper = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard upper.hasPrefix("MAX ") else { return false }
+        if upper.hasPrefix("MAX ROUNDS") || upper.hasPrefix("MAX CAL") ||
+           upper.hasPrefix("MAX DIST") || upper.hasPrefix("MAX METERS") ||
+           upper.hasPrefix("MAX WALL") || upper.hasPrefix("MAX BOX") {
+            return false
+        }
+        return true
+    }
+
     /// A coaching note, block label or video link is not a movement. Notes
     /// remain in wodNotes, separate from the movement list.
     private static func isNonExerciseLine(_ line: String) -> Bool {
@@ -446,9 +461,12 @@ public enum BoardScanLiteParser {
             return Header(title: line, format: .forTime, cap: nil, rounds: rounds)
         }
         // Named workouts: "WODSITO (TC35')" etc.
+        // Do not steal "4 RFT (TC 12')" before the RFT rounds handler.
         if upper.range(of: #"\bTC\s*[:=]?\s*\d+"#, options: .regularExpression) != nil,
            !upper.hasPrefix("EVERY") && !upper.hasPrefix("FOR TIME") &&
-           !upper.hasPrefix("RFT") && !upper.hasPrefix("AMRAP") {
+           !upper.hasPrefix("RFT") && !upper.hasPrefix("AMRAP"),
+           upper.range(of: #"\d+\s*RF[TF]\b"#, options: .regularExpression) == nil,
+           !upper.contains("FOR TIME"), !upper.contains("FOR COMPLETION") {
             let cap = capture(#"(?i)\bTC\s*[:=]?\s*(\d+)"#, from: line)?.first.flatMap(Int.init)
             return Header(title: line, format: .forTime, cap: cap)
         }

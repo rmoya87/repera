@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-11-04 (híbrido score + LocalRepair + Apple Intelligence con timeout; gratis)
+Última actualización: 2026-11-13 (Lite: RFT+TC conserva rondas; MAX CAL/MAX ROUNDS no roban cabeceras; BUY-IN y N ROUNDS OF abren formato; WARM UP descrito = fuerza)
 
 ## Objetivo
 
@@ -61,6 +61,15 @@ Soporta entre otros:
 - **EMOM multi-estación:** si la cabecera no fija `rounds`, se deriva `vueltas = intervalos_reloj ÷ estaciones` (rest cuenta como estación). Ej. EMOM 12' + 3 estaciones → 4 vueltas. El reloj sigue usando el time cap (12 intervalos de 60s), no las vueltas.
 
 Limitación: no es comprensión general; formatos muy raros dependen de la IA o de añadir patrones + tests.
+
+### Lite — invariantes 13/11/2026 (Android + iOS)
+
+- `4 RFT (TC 12')` / `3 RFT (TC 9')`: el match de `TC` nombrado **no** debe ganar antes del handler RFT (si no, `rounds` queda `null`).
+- Pareja ejercicio + `Max (n) reps` = max effort; **no** ante `MAX CAL …` ni `MAX ROUNDS OF …` (no robar `AMRAP` / buy-in).
+- Cabeceras exactas `BUY-IN` / `N ROUNDS OF` abren formato aunque también figuren como ruido no-ejercicio.
+- `WARM UP SHOULDERS` (y similares) son cabecera de fuerza; no section label que deje solo `SHOULDERS`.
+- `1mn Rest between AMRAPs` → normalizar `MN`→`MIN` antes de leer el descanso entre rondas.
+- Contrato JVM: `BoardScanLiteParserTest` / `BoardScanGlobalFixturesTest` en `:domain:testDebugUnitTest`.
 
 ## Regresión WOD 19/10/2026
 
