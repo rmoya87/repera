@@ -2595,7 +2595,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         reviewElapsedSeconds = elapsedSeconds
         reviewPhaseIteration = 1
         reviewParticipantIndex = 1
-        reviewMeasuredValue = 0.0
+        val cached = sessionCache.getString("snapshot",null)
+            ?.let {runCatching {JSONObject(it)}.getOrNull()}
+        val saved = cached?.optJSONArray("wodResults")?.let { results ->
+            (0 until results.length()).map { results.getJSONObject(it) }
+                .lastOrNull { it.optString("id")==session.blockId }
+        }
+        reviewMeasuredValue = saved?.optDouble("measuredValue")?.takeIf {
+            saved.has("measuredValue") && it.isFinite() && it > 0
+        } ?: 0.0
         reloadPartialReview()
         healthConnection?.pause(session.sessionId, true)
         restJob?.cancel()
@@ -3441,11 +3449,26 @@ internal data class FinishedSummary(
                     val r = results.optJSONObject(i) ?: continue
                     val fmt = WodFormat.fromWire(r.optString("format"))?.displayName ?: "WOD"
                     val value = when {
+                        r.has("measuredValue") && !r.isNull("measuredValue") -> {
+                            val measured = r.optDouble("measuredValue")
+                            val unit = when(r.optString("measuredMetric")) {
+                                "loadKg" -> "kg"; "calories" -> "kcal"
+                                "distanceMeters" -> "m"; else -> ""
+                            }
+                            dev.repera.domain.ReperaNumberFormat.decimal(measured)+" "+unit
+                        }
                         r.has("elapsedSeconds") && !r.isNull("elapsedSeconds") ->
                             wearClockLabel(r.optInt("elapsedSeconds"))
                         r.has("roundsCompleted") ->
                             "${r.optInt("roundsCompleted")} r + ${r.optInt("totalReps")} reps"
                         r.has("totalReps") -> "${r.optInt("totalReps")} reps"
+                        (r.optJSONArray("phaseResults")?.length() ?: 0) > 0 -> {
+                            val rows = r.optJSONArray("phaseResults") ?: JSONArray()
+                            val total = (0 until rows.length()).sumOf {
+                                rows.getJSONObject(it).optInt("completedReps",0)
+                            }
+                            "${rows.length()} parciales · $total reps"
+                        }
                         else -> "—"
                     }
                     wodLines += fmt to value
