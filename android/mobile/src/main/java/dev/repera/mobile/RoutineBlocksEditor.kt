@@ -1281,6 +1281,7 @@ internal fun BlockEditorCard(
                     }
                 }
             }
+            AdvancedPhaseControls(block)
             if (includeEntries) {
                 block.entries.forEachIndexed { index, entry ->
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
