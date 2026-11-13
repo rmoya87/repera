@@ -58,4 +58,30 @@ class WorkoutStructureTest {
         assertEquals(setOf(known),block.structure!!.activeMovementIDs(block))
         assertNull(RoutineBlock.wod(WodFormat.FOR_TIME,"FOR TIME").timeCapSeconds)
     }
+    @Test fun techniqueAndIndividualScoresAreDistinctFromCompletedSets() {
+        val method=WorkoutStrengthTechnique(
+            method=WorkoutSetMethod.cluster,tempo="31X1",
+            intraSetRestSeconds=20,clusterReps=3
+        )
+        assertTrue(method.isValid)
+        assertTrue(!WorkoutStrengthTechnique(
+            method=WorkoutSetMethod.tempo,tempo="abc"
+        ).isValid)
+        val set=PlannedSet(targetReps=9,technique=method)
+        assertEquals(method,set.technique)
+        val phase=WorkoutPhase(kind=WorkoutPhaseKind.main,title="Cluster",
+            technique=method)
+        val block=RoutineBlock.strength("Fuerza")
+        block.structure=WorkoutStructure(phases=listOf(phase))
+        assertEquals(method,block.structure?.phases?.single()?.technique)
+
+        val one=WorkoutPhaseResult(phaseID="phase",iteration=1,
+            participantIndex=1,completedReps=12)
+        val two=WorkoutPhaseResult(phaseID="phase",iteration=1,
+            participantIndex=2,completedReps=10)
+        assertTrue(one.isValid && two.isValid)
+        assertTrue(!one.copy(participantIndex=3).isValid)
+        assertTrue(!one.copy(measuredValue=80.0).isValid)
+    }
+
 }
