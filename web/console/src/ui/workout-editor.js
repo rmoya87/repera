@@ -447,8 +447,19 @@ function readAdvancedStructure(block){
    resultMetric:get(region,'resultMetric')||'totalReps',
    phases:clean(roots)};
 }
+const newEditorID=()=>globalThis.crypto?.randomUUID?.()||
+ 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+  const n=Math.floor(Math.random()*16);return (c==='x'?n:(n&3|8)).toString(16);
+ });
 export function editorMarkup(value=emptyPrescription(),{meta=null,showMeta=false}={}){
- const blocks=Array.isArray(value?.blocks)?value.blocks:[];
+ const normalizePhases=items=>(items||[]).map(p=>({
+  ...p,id:p.id||newEditorID(),children:normalizePhases(p.children||[])
+ }));
+ const blocks=Array.isArray(value?.blocks)?value.blocks.map(b=>({
+  ...b,
+  exercises:(b.exercises||[]).map(e=>({...e,originId:e.originId||newEditorID()})),
+  ...(b.structure?{structure:{...b.structure,phases:normalizePhases(b.structure.phases)}}:{})
+ })):[];
  const open=editorUI.pickerBlock;
  const panel=editorUI.panel;
  const metaHTML=showMeta?sessionMetaMarkup(meta||visualSessionMeta(value)): '';
@@ -474,6 +485,7 @@ export function editorMarkup(value=emptyPrescription(),{meta=null,showMeta=false
  <div class="editor-block-format-row"><span>Formato</span>${select(fmt,FORMATS,'format')}<input type="hidden" data-editor-field="kind" value="${escapeHTML(b.kind||'strength')}"></div>
  ${showCaps?`<div class="editor-block-settings">${num(b.rounds??1,1,100,'Rondas','rounds')}${num(b.timeCap??0,0,720,'Límite (min)','timeCap')}</div>`
   :`<input type="hidden" data-editor-field="rounds" value="${integer(b.rounds,1)}"><input type="hidden" data-editor-field="timeCap" value="${integer(b.timeCap,0)}">`}
+ ${advancedStructureMarkup(b)}
  <div class="editor-exercises">${(b.exercises||[]).map(movementMarkup).join('')||(active==='library'||active==='free'?'':'<p class="editor-block-empty">Añade ejercicios, descanso o movimiento libre.</p>')}</div>
  ${blockAddBar(i)}
  ${panelHTML}
@@ -496,7 +508,7 @@ export function readPrescription(form){
   else if(format==='none'||format==='sets')kind=kind==='warmup'||kind==='accessory'?kind:'strength';
   const minutes=integer(get(block,'timeCap'));
   const exact=Number(block.dataset.timeCapSeconds)||0;
-  const structure=(()=>{try{return JSON.parse(block.dataset.workoutStructure||'null');}catch{return null;}})();
+  const structure=readAdvancedStructure(block);
   return {kind,format,title:get(block,'title'),rounds:integer(get(block,'rounds'),1),timeCap:minutes,
    ...(structure?{structure}:{}),
    ...(exact>0?{timeCapSeconds:Math.max(0,minutes*60+exact%60)}:{}),
@@ -523,7 +535,35 @@ export function handleEditorClick(event){
  const blockEl=node.closest('[data-editor-block]');
  const blockIndex=blockEl?Number(blockEl.dataset.index):-1;
 
- if(action==='close-panel'){
+ if(['advanced-add','advanced-subphase','advanced-delete','advanced-up','advanced-down'].includes(action)){
+   const current=readPrescription(editor),target=current.blocks[blockIndex];
+   if(!target)return true;
+   const structure=target.structure||{version:1,phases:[]},roots=structure.phases||[];
+   const visit=(list,parent='')=>list.flatMap(p=>[{phase:p,parent,list},...visit(p.children||[],p.id)]);
+   const found=visit(roots).find(x=>x.phase.id===node.dataset.phaseId);
+   const blank=()=>({id:newEditorID(),kind:'main',title:'Trabajo principal',movementIDs:[],children:[]});
+   if(action==='advanced-add')roots.push(blank());
+   else if(action==='advanced-subphase'&&found){
+    found.phase.children??=[];
+    found.phase.children.push({...blank(),title:'Subfase'});
+   }else if(found){
+    const i=found.list.findIndex(p=>p.id===found.phase.id);
+    if(i>=0){
+     if(action==='advanced-delete')found.list.splice(i,1);
+     else{
+      const to=i+(action==='advanced-up'?-1:1);
+      if(to>=0&&to<found.list.length)[found.list[i],found.list[to]]=
+       [found.list[to],found.list[i]];
+     }
+    }
+   }
+   target.structure={...structure,phases:roots};
+   refreshEditor(editor,current);
+   const newDetails=editor.closest('form')?.querySelector('[data-editor-block][data-index="'+blockIndex+'"] [data-advanced-structure]');
+   if(newDetails)newDetails.open=true;
+   return true;
+  }
+  if(action==='close-panel'){
   const idx=blockIndex>=0?blockIndex:editorUI.pickerBlock;
   const cur=readPrescription(editor);
   // Si se cancela el WOD del footer sin elegir, quita el bloque vacío recién creado.
