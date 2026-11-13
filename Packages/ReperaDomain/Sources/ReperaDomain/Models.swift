@@ -1300,6 +1300,15 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         if let roundsCompleted {
             return "\(roundsCompleted) rondas"
         }
+        if let rows = phaseResults, !rows.isEmpty {
+            let total = rows.reduce(0) { $0 + ($1.completedReps ?? 0) }
+            let labels = rows.compactMap(\.participantIndex)
+            if !labels.isEmpty {
+                let one = contribution(for: 1), two = contribution(for: 2)
+                return "A1 \(one) · A2 \(two) reps"
+            }
+            return "\(rows.count) parciales · \(total) reps"
+        }
         return "—"
     }
 }
