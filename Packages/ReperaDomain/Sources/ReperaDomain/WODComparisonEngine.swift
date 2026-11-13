@@ -26,7 +26,47 @@ public struct WODComparison: Sendable {
     public var unit: String
 }
 
+public struct WODPreciseMeasurementComparison: Sendable {
+    public var improvement: Double
+    public var unit: String
+    public var previousScore: String
+    public var currentScore: String
+}
+
 public enum WODComparisonEngine {
+    /// Preserve fractional loads (e.g. 87.5 kg vs 90 kg) without rounding a
+    /// half-kilogram difference or inventing an integer result.
+    public static func compareMeasurement(
+        previous: WODComparisonContext, current: WODComparisonContext
+    ) -> WODPreciseMeasurementComparison? {
+        guard previous.prescribed.wodFormat == .maxEffort,
+              current.prescribed.wodFormat == .maxEffort,
+              previous.isRx == current.isRx,
+              let earlier = previous.result.measuredValue,
+              let later = current.result.measuredValue,
+              earlier.isFinite, later.isFinite, earlier > 0, later > 0,
+              let metric = previous.result.measuredMetric,
+              metric == current.result.measuredMetric,
+              [.loadKg, .calories, .distanceMeters].contains(metric),
+              equivalentStructure(previous.prescribed.structure,
+                                  current.prescribed.structure,
+                                  a: previous.prescribed, b: current.prescribed),
+              previous.prescribed.movements.count == current.prescribed.movements.count,
+              zip(previous.prescribed.movements, current.prescribed.movements)
+                .allSatisfy({ equivalent($0.0, $0.1) }),
+              previous.prescribed.timeCapSeconds == current.prescribed.timeCapSeconds,
+              previous.prescribed.timeCapMinutes == current.prescribed.timeCapMinutes,
+              previous.scalingFingerprint == current.scalingFingerprint,
+              (previous.isRx || !(previous.scalingFingerprint ?? "").isEmpty)
+        else { return nil }
+        return WODPreciseMeasurementComparison(
+            improvement: later - earlier,
+            unit: metric == .loadKg ? "kg" : metric == .calories ? "kcal" : "m",
+            previousScore: previous.result.summaryLabel,
+            currentScore: current.result.summaryLabel
+        )
+    }
+
     public static func compare(previous: WODComparisonContext,
                                current: WODComparisonContext) -> WODComparison? {
         let a = previous.prescribed
