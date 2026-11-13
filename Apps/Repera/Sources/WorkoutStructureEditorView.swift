@@ -51,7 +51,8 @@ struct WorkoutStructureEditorView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                ForEach(Array(structure.phases.enumerated()), id: \.element.id) { index, phase in
+                ForEach(structure.phases.indices, id: \.self) { index in
+                    let phase = structure.phases[index]
                     WorkoutPhaseRow(
                         phase: phase, references: available, level: 0,
                         onChange: { changed in
