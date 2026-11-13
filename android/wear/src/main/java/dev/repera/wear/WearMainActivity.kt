@@ -702,6 +702,25 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 onAdjustReviewElapsed = { d ->
                                     reviewElapsedSeconds = (reviewElapsedSeconds + d).coerceAtLeast(0)
                                 },
+                                onAdjustMeasuredValue = { d ->
+                                    reviewMeasuredValue = ((reviewMeasuredValue + d) * 2.0)
+                                        .coerceIn(0.0, 100_000.0).roundToInt() / 2.0
+                                },
+                                onAdjustReviewPhase = { d ->
+                                    val max = visibleSession?.wodPhaseCount ?: 1
+                                    reviewPhaseIteration = (reviewPhaseIteration + d).coerceIn(1, max)
+                                    reloadPartialReview()
+                                },
+                                onSelectReviewParticipant = { n ->
+                                    if (n in 1..2) {
+                                        reviewParticipantIndex = n
+                                        reloadPartialReview()
+                                    }
+                                },
+                                onAdjustReviewPartialReps = { d ->
+                                    reviewPartialReps = (reviewPartialReps + d).coerceIn(0, 100_000)
+                                },
+                                onSaveReviewPartial = { savePartialWodReview() },
                                 onSwipeSet = { delta ->
                                     val session = visibleSession ?: return@WearHomeCallbacks
                                     val planned = maxOf(1, session.plannedWorkSets)
@@ -2481,6 +2500,87 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (visibleSession?.wodFormatLabel != null) controlLocalWodTimer("start")
     }
 
+    private fun reviewPhaseFromSnapshot(): JSONObject? {
+        val current = visibleSession ?: return null
+        val snapshot=sessionCache.getString("snapshot", null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
+        val scores=snapshot.optJSONArray("wodResults") ?: return null
+        val score=(0 until scores.length()).map {scores.getJSONObject(it)}
+            .firstOrNull { it.optString("id")==current.blockId } ?: return null
+        val rows=score.optJSONArray("phaseResults") ?: return null
+        val phaseID=current.wodPhaseID ?: return null
+        val athlete=if(current.wodCollaboration.isNullOrBlank() || current.wodCollaboration=="solo")
+            -1 else reviewParticipantIndex
+        return (0 until rows.length()).map { rows.getJSONObject(it) }.firstOrNull {
+            it.optString("phaseID")==phaseID && it.optInt("iteration")==reviewPhaseIteration &&
+            it.optInt("participantIndex",-1)==athlete && it.optString("movementID").isBlank()
+        }
+    }
+
+    private fun reloadPartialReview() {
+        reviewPartialReps=reviewPhaseFromSnapshot()?.optInt("completedReps") ?: 0
+    }
+
+    /** Explicit partial save: never completes the current block or creates sets. */
+    private fun savePartialWodReview() {
+        val session=visibleSession ?: return
+        val phaseID=session.wodPhaseID ?: return
+        val blockID=session.blockId ?: return
+        if (reviewPhaseIteration !in 1..session.wodPhaseCount) return
+        val team = !session.wodCollaboration.isNullOrBlank() &&
+            session.wodCollaboration!="solo"
+        val result=JSONObject().put("phaseID",phaseID)
+            .put("iteration",reviewPhaseIteration)
+            .put("completedReps",reviewPartialReps)
+        if (team) result.put("participantIndex",reviewParticipantIndex)
+        // Keep the same score key when the athlete edits an earlier interval.
+        if (watchStartedSession) {
+            val snapshot=sessionCache.getString("snapshot",null)
+                ?.let{runCatching{JSONObject(it)}.getOrNull()} ?:return
+            val scores=snapshot.optJSONArray("wodResults")?:JSONArray()
+            val existing=(0 until scores.length()).map{scores.getJSONObject(it)}
+                .firstOrNull{it.optString("id")==blockID}
+            val score=existing?.let{JSONObject(it.toString())}
+                ?:JSONObject().put("id",blockID).put("format",session.wodFormatWire)
+            val prior=score.optJSONArray("phaseResults")?:JSONArray()
+            val next=JSONArray()
+            val athlete=if(team)reviewParticipantIndex else -1
+            for(i in 0 until prior.length()){
+                val row=prior.getJSONObject(i)
+                if(row.optString("phaseID")==phaseID &&
+                   row.optInt("iteration")==reviewPhaseIteration &&
+                   row.optInt("participantIndex",-1)==athlete &&
+                   row.optString("movementID").isBlank()) {
+                    result.put("id",row.optString("id").ifBlank{java.util.UUID.randomUUID().toString()})
+                } else next.put(row)
+            }
+            if(!result.has("id")) result.put("id",java.util.UUID.randomUUID().toString())
+            next.put(result)
+            score.put("phaseResults",next)
+            val updated=JSONArray()
+            for(i in 0 until scores.length()) {
+                if(scores.getJSONObject(i).optString("id")!=blockID)
+                    updated.put(scores.getJSONObject(i))
+            }
+            updated.put(score)
+            snapshot.put("wodResults",updated)
+            sessionCache.edit().putString("snapshot",snapshot.toString()).commit()
+            sendStatus="Parcial registrado"
+        } else {
+            val payload=JSONObject().put("sessionId",session.sessionId)
+                .put("blockId",blockID).put("phaseResult",result)
+                .toString().toByteArray(Charsets.UTF_8)
+            Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+                nodes.forEach {
+                    Wearable.getMessageClient(this)
+                        .sendMessage(it.id,"/repera/wod-score",payload)
+                }
+                sendStatus=if(nodes.isEmpty())"Sin conexión para guardar parcial"
+                    else "Parcial enviado al teléfono"
+            }
+        }
+    }
+
     private fun beginBlockReview() {
         val session = visibleSession ?: return
         if (session.wodFormatLabel == null) return
@@ -2492,6 +2592,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         reviewRounds = 0
         reviewExtraReps = 0
         reviewElapsedSeconds = elapsedSeconds
+        reviewPhaseIteration = 1
+        reviewParticipantIndex = 1
+        reviewMeasuredValue = 0.0
+        reloadPartialReview()
         healthConnection?.pause(session.sessionId, true)
         restJob?.cancel()
     }
