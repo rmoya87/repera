@@ -35,11 +35,11 @@ internal object WorkoutStructureWire {
             value.workSeconds?.let { put("workSeconds", it) }
             value.restSeconds?.let { put("restSeconds", it) }
             value.notes?.let { put("notes", it) }
-            value.technique?.let { put("technique", techniqueJson(it)) }
+            value.technique?.let { put("technique", encodeTechnique(it)) }
             put("children", JSONArray().apply { value.children.forEach { put(phaseJson(it)) } })
         }
 
-    private fun techniqueJson(value: WorkoutStrengthTechnique): JSONObject = JSONObject()
+    fun encodeTechnique(value: WorkoutStrengthTechnique): JSONObject = JSONObject()
         .put("method", value.method.name)
         .apply {
             value.tempo?.let { put("tempo", it) }
