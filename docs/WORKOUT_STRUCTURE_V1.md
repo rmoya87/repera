@@ -1,5 +1,7 @@
 # Estructura componible de entrenamientos — v1 (12/11/2026)
 
+Última actualización: 2026-11-13 (sin editor de estructura avanzada en UI).
+
 ## Contrato sin ruptura
 
 La app conserva sus 14 valores `WODFormat` y los campos históricos
@@ -58,10 +60,11 @@ límites de bloque; si pasa la validación hereda los metadatos opcionales.
 
 Los flujos existentes conservan su diseño y estado. Los metadatos nuevos
 viajan en la instantánea del bloque y el borrador. Los minutos y segundos de
-For Time no están asociados al descanso entre rondas. En la web Business
-se conservan las fases al serializar, con limpieza de referencias a
-movimientos eliminados; el editor visual avanzado de fases es una evolución
-independiente y no se debe afirmar que existe.
+For Time no están asociados al descanso entre rondas. En iOS, Android y
+web Business **no hay editor de estructura avanzada** (fases/sección/técnicas):
+añadía complejidad sin valor. Las fases y `structure` siguen existiendo como
+metadatos opcionales del escáner/remoto y se conservan al serializar, con
+limpieza de referencias a movimientos eliminados.
 
 ## Limitaciones y comprobaciones
 
@@ -85,9 +88,10 @@ independiente y no se debe afirmar que existe.
   o medición tipada. Se guarda como `phaseResults[]` junto al resultado
   anterior del WOD, sin crear una actividad por fase ni confirmar series
   artificiales. Los resultados antiguos sin esta clave siguen abriendo.
-- **Editar desde Crear/Edit/Play:** editor nativo de fases jerárquicas y
-  técnicas de fuerza en iOS y Android; se conservan metadatos al guardar,
-  reabrir o duplicar.
+- **Crear/Editar/Play/Business:** sin UI de fases jerárquicas ni técnicas
+  avanzadas; Partner y Max Effort siguen con selectores de modalidad/medida.
+  Los metadatos `structure` existentes se conservan al guardar, reabrir o
+  duplicar.
 - **Comparadores:** incorporan límite exacto y modalidad/estructura; las
   marcas de carga/calorías/distancia tienen comparación tipada sin convertir
   kilogramos decimales a repeticiones.

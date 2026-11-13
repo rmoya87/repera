@@ -410,7 +410,6 @@ struct DayEditorView: View {
                             .overlay(OG.label3.opacity(0.25))
                             .padding(.vertical, 5)
                         formatSettings(index: index)
-                        WorkoutStructureEditorView(block: $routine.blocks[index])
                         Divider()
                             .overlay(OG.label3.opacity(0.25))
                             .padding(.vertical, 5)
@@ -2410,13 +2409,6 @@ extension DayEditorView {
                         Text("Tiempo").tag(WorkoutResultMetric.elapsedSeconds)
                     }
                     .pickerStyle(.menu)
-                }
-                if let structure = routine.blocks[index].structure,
-                   !structure.summary.isEmpty {
-                    Text(structure.summary)
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
-                        .lineLimit(2)
                 }
                 if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
                     Toggle("Límite de tiempo", isOn: Binding(

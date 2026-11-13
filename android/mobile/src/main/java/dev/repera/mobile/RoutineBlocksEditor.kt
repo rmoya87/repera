@@ -76,10 +76,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.WodFormat
-import dev.repera.domain.WorkoutPhase
-import dev.repera.domain.WorkoutPhaseKind
-import dev.repera.domain.WorkoutStrengthTechnique
-import dev.repera.domain.WorkoutSetMethod
 import dev.repera.domain.WorkoutStructure
 import dev.repera.domain.WorkoutLocationPin
 import java.time.LocalDate
@@ -828,25 +824,11 @@ internal fun scannedRoutineBlockDraft(block: dev.repera.domain.RoutineBlock): Bl
     return draft
 }
 
-internal class AdvancedPhaseUi(initial: WorkoutPhase, val parentID: String? = null) {
-    var phase by mutableStateOf(initial.copy(children = emptyList()))
-}
-
 internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     val blockId: String? = info?.id
     /** Clave estable para LazyColumn aunque el bloque aún no tenga id de dominio. */
     val listKey: String = blockId ?: java.util.UUID.randomUUID().toString()
     var sourceJson: String? = info?.sourceJson
-    val advancedPhases = mutableStateListOf<AdvancedPhaseUi>().apply {
-        val initial = info?.sourceJson?.let {
-            runCatching { WorkoutStructureWire.decode(JSONObject(it).optJSONObject("structure")) }.getOrNull()
-        }
-        fun addPhase(phase: WorkoutPhase, parent: String? = null) {
-            add(AdvancedPhaseUi(phase, parent))
-            phase.children.forEach { addPhase(it, phase.id) }
-        }
-        initial?.phases?.forEach { addPhase(it) }
-    }
     var teamMode by mutableStateOf(info?.sourceJson?.let {
         runCatching { JSONObject(it).optJSONObject("structure")?.optString("collaboration") }.getOrNull()
     }?.takeIf { it.isNotBlank() } ?: "solo")
@@ -911,24 +893,13 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
                 base.copy(plannedSets = entry.plannedSets.toList())
             else base
         }
+        // Partner / Max Effort only tweak collaboration/resultMetric. Phases from
+        // board scan or remote stay in sourceJson; there is no advanced editor UI.
         val advancedSource = if (format == "partner" || format == "maxEffort" ||
-            advancedPhases.isNotEmpty() || teamMode != "solo") {
+            teamMode != "solo") {
             val raw = sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
             val current = WorkoutStructureWire.decode(raw.optJSONObject("structure"))
                 ?: WorkoutStructure()
-            val allowed = entries.mapNotNull { it.itemId }.toSet()
-            fun nested(row: AdvancedPhaseUi, depth: Int): WorkoutPhase {
-                require(depth <= 2)
-                val phase = row.phase
-                val technique = phase.technique
-                require(technique == null || technique.isValid)
-                return phase.copy(
-                    movementIDs = phase.movementIDs.filter { it in allowed },
-                    children = advancedPhases.filter { it.parentID == phase.id }
-                        .map { nested(it, depth + 1) }
-                )
-            }
-            val phases = advancedPhases.filter { it.parentID == null }.map { nested(it, 0) }
             val revised = current.copy(
                 collaboration = when {
                     format == "partner" || teamMode != "solo" ->
@@ -939,8 +910,7 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
                     format == "maxEffort" ->
                         dev.repera.domain.WorkoutResultMetric.valueOf(resultMetric)
                     else -> current.resultMetric
-                },
-                phases = phases
+                }
             )
             raw.put("structure", WorkoutStructureWire.encode(revised)).toString()
         } else sourceJson
@@ -963,14 +933,6 @@ internal fun saveRoutineEditorBlocks(blocks:List<BlockDraftUi>):String = org.jso
         put("interval",b.interval);put("work",b.work);put("rest",b.rest);put("ladder",b.ladder)
         put("capSeconds",b.capSeconds);put("roundRest",b.roundRest)
         put("teamMode",b.teamMode);put("resultMetric",b.resultMetric)
-        put("advancedPhases",org.json.JSONArray().apply {
-            b.advancedPhases.forEach { row ->
-                put(JSONObject().put("parentID",row.parentID)
-                    .put("phase",WorkoutStructureWire.encode(
-                        WorkoutStructure(phases=listOf(row.phase))
-                    ).getJSONArray("phases").getJSONObject(0)))
-            }
-        })
         put("entries",org.json.JSONArray().apply {b.entries.forEach {e ->put(JSONObject().apply {
             put("exerciseId",e.exerciseId);put("name",e.name);put("itemId",e.itemId);put("source",e.sourceJson)
             put("unit",e.unit);put("quantity",e.quantity);put("sets",e.sets);put("weight",e.weight)
@@ -1003,20 +965,6 @@ internal fun restoreRoutineEditorBlocks(raw:String):androidx.compose.runtime.sna
             b.capSeconds=o.optString("capSeconds","0");b.roundRest=o.optString("roundRest","")
             b.teamMode=o.optString("teamMode",b.teamMode)
             b.resultMetric=o.optString("resultMetric",b.resultMetric)
-            o.optJSONArray("advancedPhases")?.let { rows ->
-                b.advancedPhases.clear()
-                for (rowIndex in 0 until rows.length()) {
-                    val row = rows.getJSONObject(rowIndex)
-                    val structure = WorkoutStructureWire.decode(
-                        JSONObject().put("version",1)
-                            .put("phases",org.json.JSONArray().put(row.getJSONObject("phase")))
-                    )
-                    structure?.phases?.firstOrNull()?.let { phase ->
-                        b.advancedPhases.add(AdvancedPhaseUi(phase,
-                            row.optString("parentID").takeIf { it.isNotBlank() }))
-                    }
-                }
-            }
             val entries=o.getJSONArray("entries")
             for(j in 0 until entries.length()) {
                 val e=entries.getJSONObject(j)
@@ -1240,16 +1188,6 @@ internal fun BlockEditorCard(
                     )
                 }
             }
-            block.sourceJson?.let { raw ->
-                val structured = runCatching {
-                    WorkoutStructureWire.decode(JSONObject(raw).optJSONObject("structure"))?.summary
-                }.getOrNull()
-                if (!structured.isNullOrBlank()) {
-                    Text(structured, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2)
-                }
-            }
             if (block.format == "partner" || block.format == "maxEffort") {
                 var advancedMenu by remember(block.listKey) { mutableStateOf(false) }
                 val partner = block.format == "partner"
@@ -1281,7 +1219,6 @@ internal fun BlockEditorCard(
                     }
                 }
             }
-            AdvancedPhaseControls(block)
             if (includeEntries) {
                 block.entries.forEachIndexed { index, entry ->
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))

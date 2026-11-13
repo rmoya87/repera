@@ -48,7 +48,7 @@ const TEAM_MODES=new Set(['solo','youGoIGo','synchronized','sharedReps','togethe
 const SCORE_METRICS=new Set(['elapsedSeconds','totalReps','loadKg','calories','distanceMeters','rounds','perMovementSets']);
 function validateWorkoutStructure(structure){
  if(!structure||structure.version!==1||!Array.isArray(structure.phases)||structure.phases.length>30)
-  throw Error('Estructura avanzada no válida');
+  throw Error('Estructura de bloque no válida');
  if(structure.section!=null&&!SECTION_NAMES.has(structure.section))throw Error('Sección no válida');
  if(structure.collaboration!=null&&!TEAM_MODES.has(structure.collaboration))throw Error('Trabajo en equipo no válido');
  if(structure.resultMetric!=null&&!SCORE_METRICS.has(structure.resultMetric))throw Error('Medida de resultado no válida');

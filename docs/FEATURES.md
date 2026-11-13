@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-13 (swipe circular Inicio + Play anidado).
+Última actualización: 2026-11-13 (sin estructura avanzada en editores).
 
 ## Gestión de entrenamientos — auditoría 2 (12/11/2026)
 
@@ -8,7 +8,7 @@ iOS y Android comparten el mismo contrato de producto; componentes nativos por p
 
 - **Series / teclado:** `OGSetNumericCell`, `OGSetEntryRow` y `OGReperaNumericKeypad` (Android: `CompactSetField` + `ReperaNumericKeypad`) con borde accent en foco, «Anterior» copiable (valores estructurados, no parseo de texto), paso ± y tecla «Reps →» / «Serie N →».
 - **Play:** sin ✓ por serie ni fondo verde en la serie actual; sin línea «Registrado · …». Contadores en vivo: `liveWorkSetCount` / `liveVolumeKg` (iOS) y `ActiveSessionLiveStats` (Android). Descanso al avanzar con teclado. **Terminar entreno** tras Notas (con aire), no pegado al pie del bloque. Menú ⋯: sin «Formato de bloque»; «Reordenar» abre la estructura de bloques/ejercicios; separador tras escanear pizarra. Sin Anterior/Siguiente en barra. Hoja de fin anclada abajo con aire bajo el tirador. **Lugar** solo en entrenos ya hechos editables (sin ruta GPS); no en Crear/Editar no empezado ni en Play.
-- **Crear/Editar y Play:** tab bar oculta en el editor; chips de fecha/hora (evolución); toast/snackbar **Deshacer** (~4 s) al borrar serie o ejercicio (fuerza, series WOD inline/`WODMovementEditor` y Play iOS; editor Android y sesión activa Android con `WorkoutUndoSnackbarHost` + `restoreDeletedSet`/`restorePendingSet`); confirmación al **eliminar bloque** con más de un ejercicio (iOS editor y Play, Android `ConfirmDeleteMultiExerciseBlockDialog`); `DiscardChangesDialog` al salir con cambios; selector multiselección con chips musculares, Recientes y CTA flotante «Añadir N ejercicios» (`OGFloatingPrimaryCTA` / `FloatingPrimaryCta`, sin barra material). Un solo chevron **Volver** (back nativo siempre oculto; dirty → Descartar).
+- **Crear/Editar y Play:** tab bar oculta en el editor; chips de fecha/hora (evolución); toast/snackbar **Deshacer** (~4 s) al borrar serie o ejercicio (fuerza, series WOD inline/`WODMovementEditor` y Play iOS; editor Android y sesión activa Android con `WorkoutUndoSnackbarHost` + `restoreDeletedSet`/`restorePendingSet`); confirmación al **eliminar bloque** con más de un ejercicio (iOS editor y Play, Android `ConfirmDeleteMultiExerciseBlockDialog`); `DiscardChangesDialog` al salir con cambios; selector multiselección con chips musculares, Recientes y CTA flotante «Añadir N ejercicios» (`OGFloatingPrimaryCTA` / `FloatingPrimaryCta`, sin barra material). Un solo chevron **Volver** (back nativo siempre oculto; dirty → Descartar). Sin «Estructura avanzada» / «Fases y técnicas» en iOS, Android ni Business: formato, Partner y Max Effort bastan; `structure` del escáner se conserva opaco.
 - **WOD picker:** «Usar este WOD» / «Empezar ahora» como el mismo CTA flotante fijo abajo (sin caja inset).
 - **Android Play:** menú ⋯ alineado a iOS (Añadir bloque / Elegir WOD / Escanear pizarra / Reordenar / Favorito / Cancelar entreno); series en **una fila** SERIE·ANTERIOR·KG·REPS·RIR (`LiveSetRows`); «Anterior» desde última sesión; cadena de teclado sin cerrar pad; `PlayRestFooter`; CTA «Terminar entreno» al final; toolbar sin chevrons ni ✓ verde.
 - **Inicio con sesión en curso:** se puede **planificar** otro entreno (CTA «Añadir nuevo entreno» visible); arrancar una segunda sesión sigue bloqueado en dominio. Barra **Continuar** encima del menú (sin solapar texto). ▶ de rutina planificada va **dentro** de la card blanca del swipe. Swipe Inicio: L→R círculo azul lápiz (editar), R→L círculo rojo basura (borrar); en curso solo R→L descartar.
@@ -19,7 +19,7 @@ iOS y Android comparten el mismo contrato de producto; componentes nativos por p
 - **Ajustes:** iconos alineados en filas de Datos y Entrenamiento (iOS); secciones Cuenta, Centro, Salud, etc. conservadas.
 - **Vista previa:** título real, chips de resumen; abajo solo **Empezar** (Editar/Borrar en el menú ⋯).
 - **Inicio:** tarjetas planificadas/hechas con fondo `surface`, resumen «N ejercicios · N series» y ▶; se mantienen **Progreso semanal** y **Actividad de hoy**.
-- Contratos: `tests/test_workout_ui_redesign_contract.py`, `tests/test_auditoria2_play_contract.py`.
+- Contratos: `tests/test_workout_ui_redesign_contract.py`, `tests/test_auditoria2_play_contract.py`, `tests/test_no_advanced_structure_editor_contract.py`.
 
 ## Calorías medidas en el entreno (Watch y builder iPhone) (12/11/2026)
 
