@@ -138,7 +138,8 @@ private struct WorkoutPhaseRow: View {
                         value: optionalNumber(\.restSeconds, fallback: 0), in: 0...3600, step: 15)
 
                 Menu {
-                    ForEach(references, id: \.id) { reference in
+                    ForEach(references.indices, id: \.self) { index in
+                        let reference = references[index]
                         Button {
                             var value = phase
                             if value.movementIDs.contains(reference.id) {
