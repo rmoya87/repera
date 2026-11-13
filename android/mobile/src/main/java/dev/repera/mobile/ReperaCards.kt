@@ -539,11 +539,7 @@ internal fun ActiveWorkoutCard(
                 modifier = Modifier.fillMaxWidth()
             ) { Text(stringResource(R.string.repera_cards_registrar_serie)) }
             }
-            if (active.index + 1 < active.total) {
-                OutlinedButton(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.repera_cards_siguiente_ejercicio))
-                }
-            }
+            // Sin «Siguiente ejercicio»: la navegación es por la lista del bloque (paridad iOS).
             // Finalizar / cancelar solo con el ✓ de la toolbar (resumen → Guardar / Descartar).
         }
     }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -75,6 +76,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.repera.domain.WodFormat
 import dev.repera.domain.WorkoutStructure
 import dev.repera.domain.WorkoutLocationPin
@@ -129,7 +131,9 @@ fun RoutineBlocksEditorScreen(
     /** Preferencia de visualización RIR/RPE; el almacenamiento sigue en RIR. */
     effortUnit:String = "rir",
     /** Abrir ficha del ejercicio (miniatura / título). */
-    onOpenExercise: (String) -> Unit = {}
+    onOpenExercise: (String) -> Unit = {},
+    /** Recientes del picker (máx. 5; paridad iOS). */
+    recentExerciseIds: List<String> = emptyList(),
 ) {
     val scopeKey=remember(accountId,routine.id) {org.json.JSONArray(listOf(accountId,routine.id)).toString()}
     val textSaver=remember(scopeKey) {Saver<String,String>(save={saveScopedEditorValue(scopeKey,it)},restore={restoreScopedEditorValue(scopeKey,it)})}
@@ -454,7 +458,8 @@ fun RoutineBlocksEditorScreen(
                         includeFooterActions = true,
                         expandedEntryId = expandedEntryId,
                         onExpandedEntryIdChange = { expandedEntryId = it },
-                        onOfferUndo = offerUndo
+                        onOfferUndo = offerUndo,
+                        recentExerciseIds = recentExerciseIds,
                     )
                 }
             }
@@ -862,6 +867,41 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
         }
     }
 
+    /**
+     * Play: el flush de Formato (EMOM/Tabata/…) no puede fallar en silencio
+     * por un RIR/duración inválido en la UI. Coacciona números y limpia flags.
+     */
+    fun ensurePlayDraftable() {
+        if (timeCap.toIntOrNull() == null || (timeCap.toIntOrNull() ?: 0) !in 1..180) {
+            timeCap = "12"
+        }
+        if (rounds.toIntOrNull() == null || (rounds.toIntOrNull() ?: 0) !in 1..100) {
+            rounds = when (format) {
+                "tabata" -> "8"
+                "forTime", "emom" -> "4"
+                else -> "1"
+            }
+        }
+        if (capSeconds.toIntOrNull()?.takeIf { it in 0..59 } == null) capSeconds = "0"
+        if (interval.toIntOrNull() == null || (interval.toIntOrNull() ?: 0) !in 15..600) {
+            interval = "60"
+        }
+        if (work.toIntOrNull() == null || (work.toIntOrNull() ?: 0) !in 5..600) work = "20"
+        if (rest.toIntOrNull() == null || (rest.toIntOrNull() ?: -1) !in 0..600) rest = "10"
+        if (roundRest.isNotBlank() && roundRest.toIntOrNull() == null) roundRest = ""
+        entries.forEach { entry ->
+            entry.invalidSetInputs.clear()
+            entry.invalidMovementInputs.clear()
+            if (entry.quantity.toIntOrNull() == null) entry.quantity = "8"
+            if (entry.sets.toIntOrNull() == null) entry.sets = "1"
+            if (entry.weight.isNotBlank() &&
+                dev.repera.domain.ReperaNumberFormat.parse(entry.weight) == null
+            ) {
+                entry.weight = ""
+            }
+        }
+    }
+
     fun toDraft(): RoutineBlockDraft? {
         val cap = timeCap.toIntOrNull() ?: return null
         val rds = rounds.toIntOrNull() ?: return null
@@ -1035,6 +1075,9 @@ internal fun BlockEditorCard(
     expandedEntryId: String? = null,
     onExpandedEntryIdChange: ((String?) -> Unit)? = null,
     onOfferUndo: (String, () -> Unit) -> Unit = { _, _ -> },
+    /** Tras elegir Formato (Play/Crear): persistir / invalidar reloj stale. */
+    onFormatChanged: () -> Unit = {},
+    recentExerciseIds: List<String> = emptyList(),
 ) {
     val isStrengthLike = block.format.isBlank() || block.format == "strength"
     val exercisesById = remember(exercises) { exercises.associateBy { it.id } }
@@ -1046,14 +1089,36 @@ internal fun BlockEditorCard(
     ReperaCard(modifier = Modifier.fillMaxWidth().testTag("plan_block_card")) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Play (con temporizador): fila más alta y tipografía/iconos mayores
+            // para que título + reloj + ⋯ destaquen; Crear/Editar sin cambio.
+            val playHeader = onTimer != null
+            val headerIconSize = if (playHeader) 44.dp else 34.dp
+            val headerGlyphSize = if (playHeader) 22.dp else 18.dp
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (playHeader) Modifier.defaultMinSize(minHeight = 52.dp)
+                        else Modifier
+                    )
+                    .testTag(if (playHeader) "play_block_header" else "plan_block_header")
+            ) {
                 BasicTextField(
                     value = block.title,
                     onValueChange = { block.title = it },
-                    textStyle = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    ),
+                    textStyle = if (playHeader) {
+                        MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 20.sp
+                        )
+                    } else {
+                        MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
                     singleLine = true,
                     modifier = Modifier.weight(1f).testTag("plan_block_title")
                 )
@@ -1062,9 +1127,11 @@ internal fun BlockEditorCard(
                         icon = Icons.Outlined.Timer,
                         contentDescription = "Temporizador del bloque",
                         testTag = "play_block_timer",
-                        onClick = onTimer
+                        onClick = onTimer,
+                        size = headerIconSize,
+                        iconSize = headerGlyphSize,
                     )
-                    Spacer(Modifier.size(8.dp))
+                    Spacer(Modifier.size(10.dp))
                 }
                 var blockMenu by remember { mutableStateOf(false) }
                 Box {
@@ -1077,14 +1144,14 @@ internal fun BlockEditorCard(
                             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
                         ),
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(headerIconSize)
                             .testTag("plan_block_menu")
                     ) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Icon(
                                 Icons.Outlined.MoreHoriz,
                                 contentDescription = "Opciones del bloque",
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(headerGlyphSize)
                             )
                         }
                     }
@@ -1155,7 +1222,30 @@ internal fun BlockEditorCard(
             if (showFormats) {
                 BlockFormatPickerSheet(
                     current = block.format,
-                    onPick = { block.format = it; showFormats = false },
+                    onPick = { picked ->
+                        // Paridad iOS PlanView.setWODFormat: sembrar defaults
+                        // al pasar de libre/fuerza a un formato con reloj.
+                        val wasFree = block.format.isBlank() || block.format == "strength"
+                        block.format = picked
+                        if (wasFree) when (picked) {
+                            "tabata" -> {
+                                block.work = "20"
+                                block.rest = "10"
+                                block.rounds = "8"
+                            }
+                            "forTime" -> {
+                                if (block.rounds.toIntOrNull() == null ||
+                                    block.rounds.toIntOrNull() == 1
+                                ) block.rounds = "4"
+                                block.timeCap = block.timeCap.ifBlank { "12" }
+                            }
+                            "amrap", "emom" -> {
+                                block.timeCap = block.timeCap.ifBlank { "12" }
+                            }
+                        }
+                        showFormats = false
+                        onFormatChanged()
+                    },
                     onDismiss = { showFormats = false }
                 )
             }
@@ -1254,12 +1344,13 @@ internal fun BlockEditorCard(
                             effortUnit = effortUnit
                         )
                         // Paridad iOS PlayEditableSetsView: series bajo el ejercicio actual.
-                        val showLoggingUnder = trailingContent != null && (
+                        val loggingUnder = trailingContent
+                        if (loggingUnder != null && (
                             selectedEntryIndex == index ||
                                 (selectedEntryIndex == null && index == block.entries.lastIndex)
                             )
-                        if (showLoggingUnder) {
-                            trailingContent?.invoke()
+                        ) {
+                            loggingUnder()
                         }
                     }
                 }
@@ -1301,6 +1392,7 @@ internal fun BlockEditorCard(
                     exercises = exercises,
                     excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
                     allowsMultipleSelection = true,
+                    recentExerciseIds = recentExerciseIds,
                     onPickMany = { picked ->
                         var lastKey: String? = null
                         picked.forEach { ex ->
@@ -1322,7 +1414,8 @@ internal fun BlockEditorCard(
 internal fun BlockEditorFooterActions(
     block: BlockDraftUi,
     exercises: List<ExerciseEntry>,
-    onExpandedEntryIdChange: ((String?) -> Unit)? = null
+    onExpandedEntryIdChange: ((String?) -> Unit)? = null,
+    recentExerciseIds: List<String> = emptyList(),
 ) {
     var showExercisePicker by remember { mutableStateOf(false) }
     var showFreeMove by remember { mutableStateOf(false) }
@@ -1366,6 +1459,7 @@ internal fun BlockEditorFooterActions(
             exercises = exercises,
             excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
             allowsMultipleSelection = true,
+            recentExerciseIds = recentExerciseIds,
             onPickMany = { picked ->
                 var lastKey: String? = null
                 picked.forEach { ex ->
@@ -1483,6 +1577,8 @@ internal fun PlanEditorActionRow(
     }
 }
 
+/** Alta de movimiento libre: sheet abajo→arriba (paridad iOS ogFittedSheet). */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun FreeMovementDialog(
     onDismiss: () -> Unit,
@@ -1492,76 +1588,61 @@ internal fun FreeMovementDialog(
     var reps by remember { mutableStateOf("10") }
     var male by remember { mutableStateOf("") }
     var female by remember { mutableStateOf("") }
+    var repsPad by remember { mutableStateOf(false) }
+    var malePad by remember { mutableStateOf(false) }
+    var femalePad by remember { mutableStateOf(false) }
     val trimmed = name.trim()
     val repsN = reps.toIntOrNull()
-    androidx.compose.material3.AlertDialog(
+    val canAdd = trimmed.isNotEmpty() && repsN != null && repsN > 0
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+    ReperaModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Nuevo movimiento") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReperaMetaTextField(
-                    caption = "Nombre",
-                    value = name,
-                    onValueChange = { name = it },
-                    testTag = "free_move_name"
-                )
-                var repsPad by remember { mutableStateOf(false) }
-                var malePad by remember { mutableStateOf(false) }
-                var femalePad by remember { mutableStateOf(false) }
-                ReperaMetaNumericField(
-                    caption = "Repeticiones",
-                    value = reps,
-                    onClick = { repsPad = true },
-                    testTag = "free_move_reps"
-                )
-                ReperaMetaNumericField(
-                    caption = "Carga masculina · kg",
-                    value = male,
-                    onClick = { malePad = true }
-                )
-                ReperaMetaNumericField(
-                    caption = "Carga femenina · kg",
-                    value = female,
-                    onClick = { femalePad = true }
-                )
-                if (repsPad) {
-                    ReperaNumericKeypadSheet(
-                        title = "Repeticiones",
-                        draft = reps,
-                        onDraftChange = { reps = it.filter(Char::isDigit).take(4) },
-                        onDismiss = { repsPad = false },
-                        onCommit = { reps = it.filter(Char::isDigit).take(4); repsPad = false },
-                        allowsDecimal = false,
-                        showDraftPreview = true
-                    )
-                }
-                if (malePad) {
-                    ReperaNumericKeypadSheet(
-                        title = "Carga masculina · kg",
-                        draft = male,
-                        onDraftChange = { male = it },
-                        onDismiss = { malePad = false },
-                        onCommit = { male = it; malePad = false },
-                        allowsDecimal = true,
-                        showDraftPreview = true
-                    )
-                }
-                if (femalePad) {
-                    ReperaNumericKeypadSheet(
-                        title = "Carga femenina · kg",
-                        draft = female,
-                        onDraftChange = { female = it },
-                        onDismiss = { femalePad = false },
-                        onCommit = { female = it; femalePad = false },
-                        allowsDecimal = true,
-                        showDraftPreview = true
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = trimmed.isNotEmpty() && repsN != null && repsN > 0,
+        sheetState = sheetState,
+        modifier = Modifier.testTag("free_move_sheet")
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 28.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "Nuevo movimiento",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Movimiento libre sin catálogo",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            ReperaMetaTextField(
+                caption = "Nombre",
+                value = name,
+                onValueChange = { name = it },
+                testTag = "free_move_name"
+            )
+            ReperaMetaNumericField(
+                caption = "Repeticiones",
+                value = reps,
+                onClick = { repsPad = true },
+                testTag = "free_move_reps"
+            )
+            ReperaMetaNumericField(
+                caption = "Carga masculina · kg",
+                value = male,
+                onClick = { malePad = true }
+            )
+            ReperaMetaNumericField(
+                caption = "Carga femenina · kg",
+                value = female,
+                onClick = { femalePad = true }
+            )
+            Button(
                 onClick = {
                     onCreate(
                         trimmed,
@@ -1571,11 +1652,57 @@ internal fun FreeMovementDialog(
                         female.takeIf { it.isNotBlank() }
                             ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
                     )
-                }
-            ) { Text("Añadir") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
-    )
+                },
+                enabled = canAdd,
+                colors = reperaPrimaryButtonColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("free_move_add")
+            ) {
+                Text("Añadir", fontWeight = FontWeight.Bold)
+            }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cancelar")
+            }
+        }
+        if (repsPad) {
+            ReperaNumericKeypadSheet(
+                title = "Repeticiones",
+                draft = reps,
+                onDraftChange = { reps = it.filter(Char::isDigit).take(4) },
+                onDismiss = { repsPad = false },
+                onCommit = { reps = it.filter(Char::isDigit).take(4); repsPad = false },
+                allowsDecimal = false,
+                showDraftPreview = true
+            )
+        }
+        if (malePad) {
+            ReperaNumericKeypadSheet(
+                title = "Carga masculina · kg",
+                draft = male,
+                onDraftChange = { male = it },
+                onDismiss = { malePad = false },
+                onCommit = { male = it; malePad = false },
+                allowsDecimal = true,
+                showDraftPreview = true
+            )
+        }
+        if (femalePad) {
+            ReperaNumericKeypadSheet(
+                title = "Carga femenina · kg",
+                draft = female,
+                onDraftChange = { female = it },
+                onDismiss = { femalePad = false },
+                onCommit = { female = it; femalePad = false },
+                allowsDecimal = true,
+                showDraftPreview = true
+            )
+        }
+    }
 }
 
 @Composable
@@ -1614,6 +1741,7 @@ internal fun PlayCompactEntryRow(
     onClick: () -> Unit,
     summary: String = "",
     exercise: ExerciseEntry? = null,
+    isRest: Boolean = false,
     onOpenReorder: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
     onSubstitute: (() -> Unit)? = null,
@@ -1633,18 +1761,23 @@ internal fun PlayCompactEntryRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            ExerciseListThumb(
-                name = exercise?.name ?: name,
-                sportTag = exercise?.sportTag,
-                aliases = emptyMap(),
-                artKeys = exercise?.artKeys.orEmpty(),
-            )
+            if (isRest) {
+                RestListThumb()
+            } else {
+                ExerciseListThumb(
+                    name = exercise?.name ?: name,
+                    sportTag = exercise?.sportTag,
+                    aliases = emptyMap(),
+                    artKeys = exercise?.artKeys.orEmpty(),
+                )
+            }
             Column(Modifier.weight(1f)) {
+                // Paridad iOS: nombre en negro (OG.label), no verde al seleccionar.
                 Text(
                     name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (selected) brandGreen else MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2
                 )
                 if (summary.isNotBlank()) {
@@ -1654,13 +1787,6 @@ internal fun PlayCompactEntryRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-            if (!selected) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
         Box {
@@ -1716,6 +1842,7 @@ internal fun CompactEntrySummaryRow(
     summary: String,
     onClick: () -> Unit,
     exercise: ExerciseEntry? = null,
+    isRest: Boolean = false,
     onOpenReorder: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
 ) {
@@ -1735,12 +1862,16 @@ internal fun CompactEntrySummaryRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            ExerciseListThumb(
-                name = exercise?.name ?: name,
-                sportTag = exercise?.sportTag,
-                aliases = emptyMap(),
-                artKeys = exercise?.artKeys.orEmpty(),
-            )
+            if (isRest) {
+                RestListThumb()
+            } else {
+                ExerciseListThumb(
+                    name = exercise?.name ?: name,
+                    sportTag = exercise?.sportTag,
+                    aliases = emptyMap(),
+                    artKeys = exercise?.artKeys.orEmpty(),
+                )
+            }
             Column(Modifier.weight(1f)) {
                 Text(
                     name,
@@ -1754,11 +1885,6 @@ internal fun CompactEntrySummaryRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(
-                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = "Editar series",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
         Box {
             Surface(
@@ -1821,7 +1947,13 @@ internal fun BlockEntryEditorSlot(
     onOfferUndo: (String, () -> Unit) -> Unit = { _, _ -> },
     effortUnit: String
 ) {
-    val resolved = entry.name.ifBlank { nameById[entry.exerciseId] ?: "Ejercicio" }
+    val isRest = entryIsRest(entry)
+    val resolved = when {
+        isRest -> "Descanso"
+        entry.name.equals("REST", ignoreCase = true) -> "Descanso"
+        entry.name.isNotBlank() -> entry.name
+        else -> nameById[entry.exerciseId] ?: "Ejercicio"
+    }
     val ex = exercisesById[entry.exerciseId]
     if (playCompactEntries) {
         PlayCompactEntryRow(
@@ -1830,6 +1962,7 @@ internal fun BlockEntryEditorSlot(
             onClick = { onSelectEntryIndex?.invoke(index) },
             summary = entry.compactSummary(),
             exercise = ex,
+            isRest = isRest,
             onOpenReorder = onOpenReorder,
             onRemove = onRemoveEntry,
         )
@@ -1842,6 +1975,7 @@ internal fun BlockEntryEditorSlot(
             summary = entry.compactSummary(),
             onClick = { expandHandler(entryKey) },
             exercise = ex,
+            isRest = isRest,
             onOpenReorder = onOpenReorder,
             onRemove = onRemoveEntry,
         )
@@ -1945,14 +2079,16 @@ private fun EntryEditorRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (exerciseEntry != null) {
+                if (isRest) {
+                    RestListThumb()
+                } else if (exerciseEntry != null) {
                     ExerciseListThumb(
                         name = exerciseEntry.name,
                         sportTag = exerciseEntry.sportTag,
                         aliases = emptyMap(),
                         artKeys = exerciseEntry.artKeys,
                     )
-                } else if (!isRest) {
+                } else {
                     ExerciseListThumb(
                         name = resolvedName,
                         sportTag = null,

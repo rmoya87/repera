@@ -49,7 +49,7 @@ struct WorkoutView: View {
     @State private var playReorderDraft: Routine?
     @State private var confirmCancelWorkout = false
     @State private var showFinishSummary = false
-    @State private var createFreeMovementForBlock: UUID?
+    @State private var createFreeMovementForBlock: FreeMovementBlockTarget?
     @State private var openedSetID: UUID?
     @State private var undoToast: OGUndoToastState?
     @State private var playBlockDeleteConfirmID: UUID?
@@ -71,8 +71,6 @@ struct WorkoutView: View {
     @State private var manualRoundRestMinutes = 0
     @State private var manualRoundRestSeconds = 0
     @State private var confirmedManualRoundStart: ConfirmedManualRoundStart?
-    /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
-    @State private var finishedTimedBlockID: UUID?
     /// Mantener el temporizador del bloque al cambiar entre sus movimientos.
     @State private var runningTimerBlockID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
@@ -143,9 +141,6 @@ struct WorkoutView: View {
                 store.workoutClock.clearPendingEnd()
                 runningTimerBlockID = nil
             }
-            if destinationBlock != finishedTimedBlockID {
-                finishedTimedBlockID = nil
-            }
             if store.state.activeSession?.phase == .ready {
                 store.confirmCurrentOnWatchStyle()
             }
@@ -197,19 +192,25 @@ struct WorkoutView: View {
                 onCancel: { showPlayRoutinePicker = false }
             )
         }
-        .confirmationDialog("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
+        .sheet(isPresented: Binding(
             get: { pendingPlayReplacement != nil },
             set: { if !$0 { pendingPlayReplacement = nil } }
-        ), titleVisibility: .visible) {
-            Button("Sustituir y reiniciar", role: .destructive) {
-                if let pendingPlayReplacement {
-                    replacePlayExercise(pendingPlayReplacement.target, with: pendingPlayReplacement.exercise)
-                }
-                pendingPlayReplacement = nil
-            }
-            Button("Cancelar", role: .cancel) { pendingPlayReplacement = nil }
-        } message: {
-            Text("Este ejercicio ya tiene resultados registrados. Al sustituirlo se eliminarán sus series y se empezará desde los valores del ejercicio nuevo.")
+        )) {
+            OGConfirmSheet(
+                title: "¿Sustituir ejercicio y reiniciar sus series?",
+                message: "Este ejercicio ya tiene resultados registrados. Al sustituirlo se eliminarán sus series y se empezará desde los valores del ejercicio nuevo.",
+                confirmTitle: "Sustituir y reiniciar",
+                onConfirm: {
+                    if let pendingPlayReplacement {
+                        replacePlayExercise(
+                            pendingPlayReplacement.target,
+                            with: pendingPlayReplacement.exercise
+                        )
+                    }
+                    pendingPlayReplacement = nil
+                },
+                onCancel: { pendingPlayReplacement = nil }
+            )
         }
         .alert(
             playReorderError != nil ? "No se ha podido mover el ejercicio"
@@ -242,25 +243,22 @@ struct WorkoutView: View {
             )
         }
         .ogUndoToast($undoToast)
-        .confirmationDialog(
-            "¿Eliminar este bloque?",
-            isPresented: Binding(
-                get: { playBlockDeleteConfirmID != nil },
-                set: { if !$0 { playBlockDeleteConfirmID = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Eliminar bloque", role: .destructive) {
-                if let id = playBlockDeleteConfirmID {
-                    removePlayBlock(id)
-                }
-                playBlockDeleteConfirmID = nil
-            }
-            Button("Cancelar", role: .cancel) {
-                playBlockDeleteConfirmID = nil
-            }
-        } message: {
-            Text("Se eliminarán todos los ejercicios del bloque.")
+        .sheet(isPresented: Binding(
+            get: { playBlockDeleteConfirmID != nil },
+            set: { if !$0 { playBlockDeleteConfirmID = nil } }
+        )) {
+            OGConfirmSheet(
+                title: "¿Eliminar este bloque?",
+                message: "Se eliminarán todos los ejercicios del bloque.",
+                confirmTitle: "Eliminar bloque",
+                onConfirm: {
+                    if let id = playBlockDeleteConfirmID {
+                        removePlayBlock(id)
+                    }
+                    playBlockDeleteConfirmID = nil
+                },
+                onCancel: { playBlockDeleteConfirmID = nil }
+            )
         }
         .sheet(isPresented: $showFinishSummary) {
             if let session = store.state.activeSession {
@@ -309,10 +307,10 @@ struct WorkoutView: View {
                 addPlayExerciseToBlock = nil
             }
         }
-        .navigationDestination(item: $createFreeMovementForBlock) { blockID in
+        .sheet(item: $createFreeMovementForBlock) { target in
             FreeWODMovementCreatePage { movement in
                 mutatePlayRoutine { routine in
-                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+                    guard let index = routine.blocks.firstIndex(where: { $0.id == target.id }) else { return }
                     if routine.blocks[index].kind == .wod {
                         routine.blocks[index].movements.append(movement)
                     } else {
@@ -1229,20 +1227,35 @@ struct WorkoutView: View {
         mutatePlayRoutine { draft in
             guard let index = draft.blocks.firstIndex(where: { $0.id == blockID }) else { return }
             let rest = WODMovement(name: "REST", isRest: true, restSeconds: 60)
-            if draft.blocks[index].kind == .wod {
-                draft.blocks[index].movements.append(rest)
-            } else {
-                draft.blocks.insert(
-                    RoutineBlock(title: "Descanso", kind: .wod, movements: [rest]),
-                    at: index + 1
-                )
+            // Paridad Android / Plan: descanso dentro del bloque (no bloque aparte).
+            if draft.blocks[index].kind == .strength {
+                let migrated = draft.blocks[index].exercises.map { item -> WODMovement in
+                    let name = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name
+                        ?? "Ejercicio"
+                    return WODMovement(
+                        id: item.id,
+                        exerciseId: item.exerciseId,
+                        name: name,
+                        reps: item.plannedSets.first?.targetReps ?? 8,
+                        distanceMeters: item.quantityUnit == .meters
+                            ? item.plannedSets.first?.targetReps : nil,
+                        calories: item.quantityUnit == .calories
+                            ? item.plannedSets.first?.targetReps : nil,
+                        weightMaleKg: item.plannedSets.first?.targetWeightKg,
+                        explicitPlannedSets: item.plannedSets
+                    )
+                }
+                draft.blocks[index].kind = .wod
+                draft.blocks[index].exercises = []
+                draft.blocks[index].movements = migrated
             }
+            draft.blocks[index].movements.append(rest)
         }
     }
 
     private func beginPlayFreeMovement(after blockID: UUID) {
         guard routineForEditing()?.blocks.contains(where: { $0.id == blockID }) == true else { return }
-        createFreeMovementForBlock = blockID
+        createFreeMovementForBlock = FreeMovementBlockTarget(id: blockID)
     }
 
     /// Play comparte los controles de bloques/ejercicios y series del editor,
@@ -1370,7 +1383,6 @@ struct WorkoutView: View {
         }
         playBlockExerciseList(block, session: session)
         playBlockTechniquesRows(block, session: session)
-        playBlockFinishedTimerRow(block)
         WorkoutWODInsertActions(
             onExercise: { addPlayExerciseToBlock = block.id },
             onRest: { insertPlayRest(after: block.id) },
@@ -1432,15 +1444,11 @@ struct WorkoutView: View {
         _ block: WorkoutBlockEntry,
         session: WorkoutSession
     ) -> some View {
-        let blockResult = session.wodResults.first(where: {
-            $0.id == block.id && $0.format == block.format
-        })
         ForEach(block.indexes, id: \.self) { index in
             playBlockExerciseRows(
                 block: block,
                 index: index,
-                session: session,
-                blockResult: blockResult
+                session: session
             )
         }
     }
@@ -1449,8 +1457,7 @@ struct WorkoutView: View {
     private func playBlockExerciseRows(
         block: WorkoutBlockEntry,
         index: Int,
-        session: WorkoutSession,
-        blockResult: WODBlockResult?
+        session: WorkoutSession
     ) -> some View {
         let entry = session.exercises[index]
         let isCurrent = index == session.currentIndex
@@ -1462,10 +1469,7 @@ struct WorkoutView: View {
                     store.selectExercise(at: index)
                 }
             } label: {
-                workoutExerciseRow(
-                    entry, isOpen: isCurrent,
-                    blockResult: blockResult
-                )
+                workoutExerciseRow(entry)
             }
             .buttonStyle(.plain)
             .accessibilityHint(
@@ -1570,33 +1574,7 @@ struct WorkoutView: View {
         }
     }
 
-    @ViewBuilder
-    private func playBlockFinishedTimerRow(_ block: WorkoutBlockEntry) -> some View {
-        if finishedTimedBlockID == block.id,
-           block.format?.resultCapture == .perMovementSets {
-            HStack(spacing: 12) {
-                Label("Temporizador finalizado. Registra las series realizadas.", systemImage: "timer")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-                Spacer(minLength: 0)
-                Button("Finalizar bloque") {
-                    finishedTimedBlockID = nil
-                    runningTimerBlockID = nil
-                    store.finishCurrentTimedBlock()
-                    if store.state.activeSession == nil { closeFlow() }
-                }
-                .font(.footnote.weight(.semibold))
-                .buttonStyle(.bordered)
-            }
-            .listRowBackground(OG.surface)
-        }
-    }
-
-    private func workoutExerciseRow(
-        _ entry: SessionExercise,
-        isOpen: Bool,
-        blockResult: WODBlockResult?
-    ) -> some View {
+    private func workoutExerciseRow(_ entry: SessionExercise) -> some View {
         HStack(alignment: .top, spacing: 12) {
             ExerciseThumb(exercise: entry.exercise, size: 48)
                 .padding(.top, 2)
@@ -1607,23 +1585,8 @@ struct WorkoutView: View {
                 Text(entry.plannedSets.compactSummary)
                     .font(.caption)
                     .foregroundStyle(OG.label2)
-                if entry.loggedSets.isEmpty,
-                   let blockResult,
-                   entry.usesBlockScoreResult {
-                    Text("Resultado del bloque · \(blockResult.summaryLabel)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(OG.accent)
-                }
             }
             Spacer(minLength: 6)
-            if entry.isCompleted {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(OG.accent)
-            } else if !isOpen {
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(OG.label3)
-            }
         }
         .contentShape(Rectangle())
     }
@@ -1830,11 +1793,7 @@ struct WorkoutView: View {
                 Text("Resultado del bloque")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
-                Spacer(minLength: 6)
-                Text(existing?.summaryLabel ?? "Sin registrar")
-                    .font(.system(size: 13, weight: .medium).monospacedDigit())
-                    .foregroundStyle(existing == nil ? OG.label3 : OG.accent)
-                    .lineLimit(1)
+                Spacer(minLength: 0)
             }
             WODResultInlineEditor(
                 blockId: block.id,
@@ -1850,10 +1809,10 @@ struct WorkoutView: View {
                 store.applyWODResult(result)
                 let globalScoreSaved = result.totalReps != nil || result.elapsedSeconds != nil
                     || result.measuredValue != nil
+                // El fin del reloj (o su score) no archiva el entreno: el atleta
+                // sigue en Play y cierra con «Terminar entreno» cuando quiera.
                 if globalScoreSaved && pendingWODConfirm?.blockId == block.id {
                     pendingWODConfirm = nil
-                    store.finishCurrentTimedBlock()
-                    if store.state.activeSession == nil { closeFlow() }
                 }
             }
             .id("\(block.id.uuidString)-\(format.rawValue)")
@@ -2207,6 +2166,7 @@ struct WorkoutView: View {
         let roundDisplay: Int? = clock.isIntervalMode
             ? min(clock.displayedRound, clock.displayedRoundsTotal)
             : nil
+        let rows = blockTimerExerciseRows(clock: clock)
         return TimelineView(.periodic(from: .now, by: 0.25)) { context in
             BlockTimerScreen(
                 title: clock.title,
@@ -2214,6 +2174,7 @@ struct WorkoutView: View {
                     ? "Cuenta atrás"
                     : (clock.isOverTimeCap ? "TC superado · tiempo real" : clock.subtitle),
                 exercise: clock.exercise,
+                exerciseRows: rows,
                 roundNumber: roundDisplay,
                 totalRounds: clock.isIntervalMode ? clock.displayedRoundsTotal : nil,
                 displaySeconds: clock.displaySeconds(at: context.date),
@@ -2230,16 +2191,113 @@ struct WorkoutView: View {
         }
     }
 
-    /// Al acabar un reloj, abrir el score del bloque si corresponde.
-    /// EMOM/Tabata y fuerza NO cierran ni inventan series: el atleta registra
-    /// sus intervalos y confirma la finalización posteriormente.
+    /// Listado del bloque en el reloj: imagen | nombre | series×reps (o dosis WOD).
+    private func blockTimerExerciseRows(clock: WorkoutClockCoordinator) -> [BlockTimerExerciseRow] {
+        guard let session = store.state.activeSession else { return [] }
+        let blockID = runningTimerBlockID
+            ?? session.currentExercise?.blockId
+            ?? session.currentExercise?.id
+        let peers = session.exercises.filter { ($0.blockId ?? $0.id) == blockID }
+        guard !peers.isEmpty else { return [] }
+        let workPeers = peers.filter { !isTimerRestExercise($0) }
+        let activeIndex = activeTimerWorkIndex(
+            format: peers.first?.wodFormat,
+            workCount: max(1, workPeers.count),
+            intervalIndex: clock.intervalIndex,
+            subtitle: clock.subtitle,
+            isIntervalMode: clock.isIntervalMode,
+            currentID: session.currentExercise?.id,
+            workPeers: workPeers
+        )
+        return peers.map { entry in
+            let workOrdinal = workPeers.firstIndex(where: { $0.id == entry.id })
+            let active = !clock.subtitle.localizedCaseInsensitiveContains("descanso")
+                && workOrdinal == activeIndex
+            return BlockTimerExerciseRow(
+                id: entry.id,
+                exercise: entry.exercise,
+                name: isTimerRestExercise(entry) ? "Descanso" : entry.exercise.name,
+                detail: timerPrescriptionDetail(entry),
+                isActive: active
+            )
+        }
+    }
+
+    private func isTimerRestExercise(_ entry: SessionExercise) -> Bool {
+        entry.exercise.name.compare("REST", options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+    }
+
+    private func timerPrescriptionDetail(_ entry: SessionExercise) -> String {
+        if isTimerRestExercise(entry) {
+            if let sec = entry.restSeconds ?? entry.plannedSets.first?.targetDurationSeconds, sec > 0 {
+                return "\(sec) s"
+            }
+            return "Descanso"
+        }
+        let planned = entry.plannedSets
+        guard !planned.isEmpty else { return "" }
+        let first = planned[0]
+        let reps = first.targetReps
+        if let unit = entry.quantityUnit, unit != .reps, reps > 0 {
+            return "\(reps) \(unit.shortLabel)"
+        }
+        // Escalera / ola 21-15-9: no resumir como «3×21».
+        let wave = planned.map(\.targetReps)
+        if planned.count >= 2, Set(wave).count > 1 {
+            let scheme = wave.map(String.init).joined(separator: "-")
+            if let kg = first.targetWeightKg, kg > 0 {
+                return "\(scheme) · \(ReperaNumberFormat.decimal(kg)) kg"
+            }
+            return scheme
+        }
+        let repsSummary = planned.compactRepsSummary
+        if repsSummary == "—" { return "" }
+        if let kg = first.targetWeightKg, kg > 0 {
+            return "\(repsSummary) · \(ReperaNumberFormat.decimal(kg)) kg"
+        }
+        return repsSummary
+    }
+
+    /// Solo formatos por intervalos resaltan el movimiento activo.
+    /// AFAP / Escalera / For Time / Chipper / AMRAP… muestran la lista sin marcar.
+    private func activeTimerWorkIndex(
+        format: WODFormat?,
+        workCount: Int,
+        intervalIndex: Int,
+        subtitle: String,
+        isIntervalMode: Bool,
+        currentID: UUID?,
+        workPeers: [SessionExercise]
+    ) -> Int? {
+        guard workCount > 0 else { return nil }
+        if subtitle.localizedCaseInsensitiveContains("descanso") { return nil }
+        switch format {
+        case .emom, .deathBy:
+            return isIntervalMode ? intervalIndex % workCount : 0
+        case .circuit:
+            if let match = subtitle.range(of: #"estación\s+(\d+)"#, options: [.regularExpression, .caseInsensitive]) {
+                let digits = String(subtitle[match].filter(\.isNumber))
+                if let n = Int(digits), n >= 1 { return (n - 1) % workCount }
+            }
+            return isIntervalMode ? intervalIndex % workCount : 0
+        case .tabata:
+            return isIntervalMode ? (intervalIndex / 2) % workCount : 0
+        case .forTime, .chipper, .afap, .ladder, .buyInCashOut,
+                .amrap, .maxEffort, .partner, .roundsForQuality, .strength, .none:
+            return nil
+        }
+    }
+
+    /// Al acabar un reloj: volver a Play (el fullscreen ya se oculta en
+    /// `finishComplete` / `finishByUser`). Nunca archiva la sesión.
+    /// EMOM/Tabata/fuerza: el atleta sigue registrando series a su ritmo.
+    /// Formatos con score global: se siembra el editor con el elapsed medido.
     private func presentWODConfirmIfNeeded() {
         guard let (_, elapsed) = store.workoutClock.consumePendingEnd() else { return }
         guard let current = store.state.activeSession?.currentExercise else { return }
         runningTimerBlockID = nil
         if current.wodFormat?.resultCapture == .perMovementSets
             || current.wodFormat == nil {
-            finishedTimedBlockID = current.blockId ?? current.id
             return
         }
         presentScoreEditor(for: current, elapsed: elapsed)
@@ -2419,7 +2477,6 @@ struct WorkoutView: View {
             store.restCoordinator.skip()
         }
         runningTimerBlockID = current.blockId ?? current.id
-        finishedTimedBlockID = nil
 
         switch format {
         case .emom:

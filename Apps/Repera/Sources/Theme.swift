@@ -272,15 +272,20 @@ struct OGDiscardChangesConfirm: ViewModifier {
     var onDiscard: () -> Void
 
     func body(content: Content) -> some View {
-        content.confirmationDialog(
-            "¿Descartar cambios?",
-            isPresented: $isPresented,
-            titleVisibility: .visible
-        ) {
-            Button("Descartar cambios", role: .destructive, action: onDiscard)
-            Button("Seguir editando", role: .cancel) {}
-        } message: {
-            Text("Perderás los cambios que no hayas guardado.")
+        // Sheet abajo→arriba (paridad OGConfirmSheet / Android ReperaConfirmSheet).
+        // No confirmationDialog: en iOS 26 se ve como popover centrado.
+        content.sheet(isPresented: $isPresented) {
+            OGConfirmSheet(
+                systemImage: "trash.circle.fill",
+                title: "¿Descartar cambios?",
+                message: "Perderás los cambios que no hayas guardado.",
+                confirmTitle: "Descartar cambios",
+                onConfirm: {
+                    isPresented = false
+                    onDiscard()
+                },
+                onCancel: { isPresented = false }
+            )
         }
     }
 }

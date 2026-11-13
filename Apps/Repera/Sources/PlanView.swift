@@ -95,7 +95,7 @@ struct DayEditorView: View {
     var usesPageCloseHeader: Bool = false
     @State private var pickExerciseForBlock: UUID?
     @State private var pickMovementForBlock: UUID?
-    @State private var createFreeMovementForBlock: UUID?
+    @State private var createFreeMovementForBlock: FreeMovementBlockTarget?
     @State private var showRoutinePicker = false
     @State private var showWODCatalog = false
     @State private var showBoardScanner = false
@@ -483,25 +483,22 @@ struct DayEditorView: View {
         }
         .ogDiscardChangesConfirm(isPresented: $showDiscardConfirm, onDiscard: discardEditorChanges)
         .ogUndoToast($undoToast)
-        .confirmationDialog(
-            "¿Eliminar este bloque?",
-            isPresented: Binding(
-                get: { blockDeleteConfirmID != nil },
-                set: { if !$0 { blockDeleteConfirmID = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Eliminar bloque", role: .destructive) {
-                if let id = blockDeleteConfirmID {
-                    routine.blocks.removeAll { $0.id == id }
-                }
-                blockDeleteConfirmID = nil
-            }
-            Button("Cancelar", role: .cancel) {
-                blockDeleteConfirmID = nil
-            }
-        } message: {
-            Text("Se eliminarán todos los ejercicios del bloque.")
+        .sheet(isPresented: Binding(
+            get: { blockDeleteConfirmID != nil },
+            set: { if !$0 { blockDeleteConfirmID = nil } }
+        )) {
+            OGConfirmSheet(
+                title: "¿Eliminar este bloque?",
+                message: "Se eliminarán todos los ejercicios del bloque.",
+                confirmTitle: "Eliminar bloque",
+                onConfirm: {
+                    if let id = blockDeleteConfirmID {
+                        routine.blocks.removeAll { $0.id == id }
+                    }
+                    blockDeleteConfirmID = nil
+                },
+                onCancel: { blockDeleteConfirmID = nil }
+            )
         }
         .alert(
             saveAsFavorite ? "No se ha podido guardar el favorito" : "No se ha podido guardar el entrenamiento",
@@ -582,9 +579,9 @@ struct DayEditorView: View {
                 pickMovementForBlock = nil
             }
         }
-        .navigationDestination(item: $createFreeMovementForBlock) { blockID in
+        .sheet(item: $createFreeMovementForBlock) { target in
             FreeWODMovementCreatePage { movement in
-                if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
+                if let idx = routine.blocks.firstIndex(where: { $0.id == target.id }) {
                     if routine.blocks[idx].kind == .wod {
                         routine.blocks[idx].movements.append(movement)
                     } else {
@@ -648,19 +645,25 @@ struct DayEditorView: View {
                 }
             }
         }
-        .confirmationDialog("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
+        .sheet(isPresented: Binding(
             get: { pendingReplacement != nil },
             set: { if !$0 { pendingReplacement = nil } }
-        ), titleVisibility: .visible) {
-            Button("Sustituir y reiniciar", role: .destructive) {
-                if let pendingReplacement {
-                    applyExerciseReplacement(target: pendingReplacement.target, with: pendingReplacement.exercise)
-                }
-                pendingReplacement = nil
-            }
-            Button("Cancelar", role: .cancel) { pendingReplacement = nil }
-        } message: {
-            Text("Este ejercicio tiene resultados registrados. Al sustituirlo se perderán sus series; los demás ejercicios conservarán las suyas.")
+        )) {
+            OGConfirmSheet(
+                title: "¿Sustituir ejercicio y reiniciar sus series?",
+                message: "Este ejercicio tiene resultados registrados. Al sustituirlo se perderán sus series; los demás ejercicios conservarán las suyas.",
+                confirmTitle: "Sustituir y reiniciar",
+                onConfirm: {
+                    if let pendingReplacement {
+                        applyExerciseReplacement(
+                            target: pendingReplacement.target,
+                            with: pendingReplacement.exercise
+                        )
+                    }
+                    pendingReplacement = nil
+                },
+                onCancel: { pendingReplacement = nil }
+            )
         }
     }
 
@@ -2106,25 +2109,46 @@ extension DayEditorView {
         )
     }
 
-    /// Fuerza no contiene movimientos REST: crear un bloque WOD a continuación
-    /// conserva todos los ejercicios, series y resultados del bloque de fuerza.
+    /// Descanso siempre **dentro** del bloque (paridad Android). Si el bloque
+    /// es fuerza, se migra a WOD in-place para poder intercalarlo con el resto.
     private func insertRest(after blockID: UUID) {
         guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
         let rest = WODMovement(name: "REST", isRest: true, restSeconds: 60)
-        if routine.blocks[index].kind == .wod {
-            routine.blocks[index].movements.append(rest)
-        } else {
-            routine.blocks.insert(
-                RoutineBlock(title: "Descanso", kind: .wod, movements: [rest]),
-                at: index + 1
+        promoteStrengthBlockToWODIfNeeded(at: index)
+        routine.blocks[index].movements.append(rest)
+        expandedEntryID = rest.id
+    }
+
+    /// Fuerza → WOD conservando series (`explicitPlannedSets`) para que el
+    /// descanso viva en la misma lista de movimientos del bloque.
+    private func promoteStrengthBlockToWODIfNeeded(at index: Int) {
+        guard routine.blocks.indices.contains(index),
+              routine.blocks[index].kind == .strength else { return }
+        let migrated = routine.blocks[index].exercises.map { item -> WODMovement in
+            let name = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name
+                ?? "Ejercicio"
+            return WODMovement(
+                id: item.id,
+                exerciseId: item.exerciseId,
+                name: name,
+                reps: item.plannedSets.first?.targetReps ?? 8,
+                distanceMeters: item.quantityUnit == .meters
+                    ? item.plannedSets.first?.targetReps : nil,
+                calories: item.quantityUnit == .calories
+                    ? item.plannedSets.first?.targetReps : nil,
+                weightMaleKg: item.plannedSets.first?.targetWeightKg,
+                explicitPlannedSets: item.plannedSets
             )
         }
+        routine.blocks[index].kind = .wod
+        routine.blocks[index].exercises = []
+        routine.blocks[index].movements = migrated
     }
 
     private func beginFreeMovement(after blockID: UUID) {
         guard routine.blocks.contains(where: { $0.id == blockID }) else { return }
         // No insertar un bloque vacío si se cancela el editor.
-        createFreeMovementForBlock = blockID
+        createFreeMovementForBlock = FreeMovementBlockTarget(id: blockID)
     }
 
     /// Textos «Anterior» precargados una vez por ejercicio (no por fila de serie).
@@ -2489,7 +2513,16 @@ extension DayEditorView {
                                     ? "Ver ficha del ejercicio" : "Editar series"
                             )
                         } else if move.isRest {
-                            movementRowLabel(move: move, resolved: resolved, showSummary: false)
+                            Button {
+                                expandedEntryID = expandedEntryID == move.id ? nil : move.id
+                            } label: {
+                                movementRowLabel(move: move, resolved: resolved, showSummary: false)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint(
+                                expandedEntryID == move.id
+                                    ? "Contraer descanso" : "Editar segundos de descanso"
+                            )
                         } else {
                             Button {
                                 expandedEntryID = move.id
@@ -2506,15 +2539,40 @@ extension DayEditorView {
             }
 
             if move.isRest {
-                Stepper(
-                    "Segundos: \(routine.blocks[index].movements[mIndex].restSeconds ?? 60)",
-                    value: Binding(
-                        get: { routine.blocks[index].movements[mIndex].restSeconds ?? 60 },
-                        set: { routine.blocks[index].movements[mIndex].restSeconds = $0 }
-                    ),
-                    in: 15...300,
-                    step: 15
-                )
+                if expandedEntryID == move.id {
+                    OGFormatNumberField(
+                        title: "Segundos",
+                        unit: "s",
+                        value: Binding(
+                            get: { routine.blocks[index].movements[mIndex].restSeconds ?? 60 },
+                            set: { routine.blocks[index].movements[mIndex].restSeconds = $0 }
+                        ),
+                        range: 5...600,
+                        focus: $focusedFormatField,
+                        fieldID: OGSetFieldID(rowID: move.id, column: 0)
+                    )
+                    .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
+                    .listRowSeparator(.hidden, edges: .top)
+                    .accessibilityLabel("Segundos de descanso")
+                } else {
+                    Button {
+                        expandedEntryID = move.id
+                    } label: {
+                        HStack {
+                            Text("\(move.restSeconds ?? 60) s")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(OG.label3)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Editar segundos de descanso")
+                    .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
+                    .listRowSeparator(.hidden, edges: .top)
+                }
             } else if isEditingCompletedWorkout,
                       let format = routine.blocks[index].wodFormat,
                       format.resultCapture != .perMovementSets {
@@ -3802,7 +3860,12 @@ struct ExercisePickerView: View {
     }
 }
 
-/// Alta de un movimiento libre como página push; se valida antes de añadirlo.
+/// `sheet(item:)` exige Identifiable; UUID solo es Hashable (navigationDestination).
+struct FreeMovementBlockTarget: Identifiable, Hashable {
+    let id: UUID
+}
+
+/// Alta de un movimiento libre como sheet fitted (abajo→arriba); se valida antes de añadirlo.
 struct FreeWODMovementCreatePage: View {
     @Environment(\.dismiss) private var dismiss
     var onCreate: (WODMovement) -> Void
@@ -3818,43 +3881,78 @@ struct FreeWODMovementCreatePage: View {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var canAdd: Bool {
+        !trimmedName.isEmpty && (Int(repsText) ?? 0) > 0
+    }
+
     var body: some View {
-        Form {
-            Section {
-                OGScrollablePageTitle("Nuevo movimiento").ogScrollingTitleListRow()
+        VStack(alignment: .leading, spacing: 14) {
+            OGPageHeader(title: "Nuevo movimiento") {
+                CloseToolbarButton(action: { dismiss() }, large: true)
             }
-            .listSectionSpacing(0)
-            Section("Movimiento") {
+            Text("Movimiento libre sin catálogo")
+                .font(.subheadline)
+                .foregroundStyle(OG.label2)
+
+            sheetField(caption: "Nombre") {
                 TextField("Nombre", text: $name)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
-                numericRow("Repeticiones", text: $repsText, column: 0, nextColumn: 1, decimal: false)
+                    .font(.body)
             }
-            Section("Carga opcional · kg") {
-                numericRow("Carga masculina", text: $maleWeightText, column: 1, nextColumn: 2, decimal: true)
-                numericRow("Carga femenina", text: $femaleWeightText, column: 2, nextColumn: nil, decimal: true)
+
+            numericSheetRow("Repeticiones", text: $repsText, column: 0, nextColumn: 1, decimal: false)
+            numericSheetRow("Carga masculina · kg", text: $maleWeightText, column: 1, nextColumn: 2, decimal: true)
+            numericSheetRow("Carga femenina · kg", text: $femaleWeightText, column: 2, nextColumn: nil, decimal: true)
+
+            Button {
+                guard let reps = Int(repsText), reps > 0 else { return }
+                let movement = WODMovement(
+                    name: trimmedName,
+                    reps: reps,
+                    weightMaleKg: ReperaNumberFormat.parse(maleWeightText),
+                    weightFemaleKg: ReperaNumberFormat.parse(femaleWeightText)
+                )
+                onCreate(movement)
+                dismiss()
+            } label: {
+                Text("Añadir")
+                    .font(.system(size: 17, weight: .bold))
+                    .frame(maxWidth: .infinity, minHeight: 52)
             }
+            .buttonStyle(.borderedProminent)
+            .tint(OG.accent)
+            .disabled(!canAdd)
+
+            Button("Cancelar") { dismiss() }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundStyle(OG.accent)
         }
-        .ogListChrome()
-        .ogScrollingTitleNav()
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Añadir") {
-                    guard let reps = Int(repsText), reps > 0 else { return }
-                    let movement = WODMovement(
-                        name: trimmedName,
-                        reps: reps,
-                        weightMaleKg: ReperaNumberFormat.parse(maleWeightText),
-                        weightFemaleKg: ReperaNumberFormat.parse(femaleWeightText)
-                    )
-                    onCreate(movement)
-                    dismiss()
-                }
-                .disabled(trimmedName.isEmpty || (Int(repsText) ?? 0) <= 0)
-            }
+        .padding(.horizontal, OG.pad)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .ogFittedHeight()
+        .ogFittedSheet()
+    }
+
+    private func sheetField<Content: View>(
+        caption: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(OG.label2)
+            content()
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
-    private func numericRow(
+
+    private func numericSheetRow(
         _ label: String,
         text: Binding<String>,
         column: Int,
@@ -3862,10 +3960,7 @@ struct FreeWODMovementCreatePage: View {
         decimal: Bool
     ) -> some View {
         let field = OGSetFieldID(rowID: numericGroupID, column: column)
-        return HStack(spacing: 10) {
-            Text(label)
-                .foregroundStyle(OG.label)
-            Spacer(minLength: 8)
+        return sheetField(caption: label) {
             OGNumericTextField(
                 text: text,
                 allowsDecimal: decimal,
@@ -3883,9 +3978,7 @@ struct FreeWODMovementCreatePage: View {
                     }
                 }
             )
-            .frame(width: 105, height: 44)
-            .padding(.horizontal, 8)
-            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
         }
     }
 

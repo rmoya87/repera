@@ -4,7 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -25,7 +25,8 @@ enum class ReperaMascotPose(val assetPath: String) {
     PERMISSIONS("mascot/mascot-permissions.png"),
     HERO("mascot/mascot-hero.png"),
     WATCH("mascot/mascot-watch.png"),
-    RUNNING("mascot/mascot-running.png")
+    RUNNING("mascot/mascot-running.png"),
+    FACE("mascot/mascot-face.png")
 }
 
 /** Mascota Repera para onboarding y pantallas de producto. Port de ReperaMascot.swift. */
@@ -48,24 +49,33 @@ fun ReperaMascot(pose: ReperaMascotPose, maxHeight: Dp = 220.dp, modifier: Modif
 }
 
 /**
- * Splash de restauración de sesión al lanzar: lienzo verde con la mascota
- * corriendo centrada. Port de LaunchSplashView (ReperaApp.swift, iOS):
- * fondo rgb(48,209,88), mascota al 64% del ancho y 52% del alto.
+ * Splash: cara estática (`mascot-face.png`) sobre verde de marca.
+ * Paridad iOS `LaunchFaceSplashView`.
  */
 @Composable
 fun LaunchSplashScreen() {
+    val context = LocalContext.current
+    val bitmap = remember {
+        runCatching {
+            context.assets.open("mascot/mascot-face.png").use { BitmapFactory.decodeStream(it) }
+        }.getOrNull()?.asImageBitmap()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF30D158))
+            .background(Color(0xFF30D158)),
+        contentAlignment = Alignment.Center
     ) {
-        ReperaMascot(
-            pose = ReperaMascotPose.RUNNING,
-            maxHeight = 600.dp,
-            modifier = Modifier
-                .fillMaxWidth(0.64f)
-                .fillMaxHeight(0.52f)
-                .align(Alignment.Center)
-        )
+        bitmap?.let {
+            Image(
+                bitmap = it,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .aspectRatio(1f)
+            )
+        }
     }
 }

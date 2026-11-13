@@ -23,12 +23,13 @@ class TimerAdaptiveLayoutTests(unittest.TestCase):
         self.assertIn("hasRound ? 4.22 : 2.76", screen)
         self.assertIn("geometry.size.width - sideWidth - horizontalInset", screen)
         self.assertNotIn("max(55, availableClockWidth", screen)
-        self.assertIn("geometry.size.height * (landscape ? 0.36 : 0.235)", screen)
+        self.assertIn("showsExerciseList ? 0.18 : 0.235", screen)
         self.assertLess(layout.index("clockBlock(digitHeight: digitHeight)"),
                         layout.index("exerciseDetails"))
-        self.assertIn("VStack(spacing: 38)", layout)
         self.assertIn("exerciseDetails(landscape: false)", layout)
-        self.assertIn("Spacer(minLength: 16)", layout)
+        self.assertIn("exerciseRows", screen)
+        self.assertIn("BlockTimerExerciseRow", screen)
+        self.assertIn("ExerciseThumb(exercise: exercise, size: 52)", screen)
         self.assertNotIn("TimerSystemAudioPanel()", layout)
         self.assertIn("controls(horizontal: false)", layout)
 
@@ -76,8 +77,10 @@ class TimerAdaptiveLayoutTests(unittest.TestCase):
 
     def test_thumbnail_is_larger_and_timer_action_is_circular_liquid_glass(self):
         screen = read("DigitalClockDisplay.swift")
+        # Listado Play usa thumb 52; el legado (temporizador libre con un
+        # ejercicio) conserva 100/112.
         self.assertIn("size: landscape ? 112 : 100", screen)
-        self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", screen)
+        self.assertIn("ExerciseThumb(exercise: exercise, size: 52)", screen)
         play = read("WorkoutView.swift")
         start = play.index("private func content(_ session: WorkoutSession)")
         end = play.index("private func workoutExerciseRow(", start)

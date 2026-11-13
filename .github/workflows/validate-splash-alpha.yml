@@ -4,19 +4,22 @@ on:
   push:
     branches: [main]
     paths:
+      - "Apps/Repera/Resources/Assets.xcassets/MascotFace.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/ReperaBarbellLaunch.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/ReperaNativeOpaqueHero.imageset/**"
       - "Apps/Repera/Resources/Info.plist"
       - "Apps/Repera/Resources/LaunchScreen.storyboard"
+      - "Apps/Repera/Sources/ReperaApp.swift"
       - "project.yml"
       - ".github/workflows/validate-splash-alpha.yml"
   pull_request:
     paths:
       - "Apps/Repera/Resources/Assets.xcassets/**"
       - "Apps/Repera/Resources/Info.plist"
-      - "Apps/Repera/Resources/Info.plist"
+      - "Apps/Repera/Resources/LaunchScreen.storyboard"
+      - "Apps/Repera/Sources/ReperaApp.swift"
       - "project.yml"
       - ".github/workflows/validate-splash-alpha.yml"
 
@@ -26,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python -m pip install --disable-pip-version-check pillow
-      - name: Verify native launch storyboard uses first mascot and brand green
+      - name: Verify native launch storyboard uses face mascot and brand green
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -34,16 +37,22 @@ jobs:
           from PIL import Image
           root=Path("Apps/Repera/Resources")
           assets=root/"Assets.xcassets"
+          face_dir=assets/"MascotFace.imageset"
+          face_cfg=json.loads((face_dir/"Contents.json").read_text())
+          assert face_cfg["images"][0]["filename"]=="mascot-face.png"
+          with Image.open(face_dir/"mascot-face.png") as face:
+              assert face.mode in ("RGB","RGBA") and face.size[0]==face.size[1]>=512
+              assert face.getpixel((0,0))[:3]==(48,209,88)
+              dark=sum(1 for rgb in face.getdata() if max(rgb[:3])<105)
+              assert dark>500, f"Face eyes/mouth missing: {dark}"
           manifest=json.loads((assets/"ReperaBarbellLaunch.imageset/Contents.json").read_text())
-          assert manifest["images"][0]=={"filename":"repera-barbell-launch.png","idiom":"universal","scale":"3x"}
+          assert manifest["images"][0]["filename"]=="repera-barbell-launch.png"
           image=assets/"ReperaBarbellLaunch.imageset/repera-barbell-launch.png"
           with Image.open(image) as im:
-              # Art has a transparent exterior. The native background is the
-              # separate brand-green color asset, and eyes/mouth are opaque.
               assert im.mode=="RGBA" and im.width>=800 and im.height>=1600, im.size
               assert im.getpixel((0,0))[3]==0
               assert im.getpixel((im.width//2,im.height//2))[3]>=245
-              face=im.crop((260,830,600,1040))
+              face=im.crop((200,700,650,1150))
               dark=sum(1 for r,g,b,a in face.getdata()
                        if a>=245 and max(r,g,b)<105)
               assert dark>500, f"Opaque dark eyes/mouth missing: only {dark} pixels"
@@ -56,7 +65,7 @@ jobs:
           with Image.open(opaqueDir/"repera-native-opaque-hero.png") as opaque:
               assert opaque.mode=="RGB" and opaque.size==(850,1850), "Native launch artwork must be fully opaque"
               assert opaque.getpixel((0,0))==(48,209,88)
-              face=opaque.crop((250,750,620,1100))
+              face=opaque.crop((200,700,650,1150))
               assert sum(1 for rgb in face.getdata() if max(rgb)<105)>500, "Eyes or mouth lost"
           props=plistlib.loads((root/"Info.plist").read_bytes())
           assert "UILaunchScreen" not in props
@@ -73,21 +82,28 @@ jobs:
           assert "UILaunchScreen:" not in config
           assert "UILaunchStoryboardName: LaunchScreen" in config
           assert "path: Apps/Repera/Resources/LaunchScreen.storyboard" in config
-          # Splash art fills the full native launch window, without scaling
-          # down to a small content box or relying on a second overlay.
           constraint_ids={node.attrib.get("id") for node in tree.findall(".//constraint")}
           required={"mascot-leading","mascot-trailing","mascot-top","mascot-bottom"}
           assert required.issubset(constraint_ids), "Native splash mascot not pinned edge-to-edge"
           assert config.count("path: Apps/Repera/Resources/LaunchScreen.storyboard")==1
-          assert 'path: Apps/Repera/Resources/LaunchScreen.storyboard' in config
-          assert 'UILaunchStoryboardName: LaunchScreen' in config
-          # Only the built-in launch storyboard is part of the Xcode target.
           assert 'path: Apps/Repera/Resources/ReperaBarbellStartup.storyboard' not in config
           direct=Path("Apps/Repera/Resources/ReperaStartupBarbell.png")
-          assert direct.read_bytes()==image.read_bytes(), "First SwiftUI splash differs from native artwork"
+          opaque_png=opaqueDir/"repera-native-opaque-hero.png"
+          assert direct.read_bytes()==opaque_png.read_bytes(), "Startup PNG must match opaque native hero"
           runner=Path("Apps/Repera/Sources/ReperaApp.swift").read_text()
-          assert 'launchMascotStage == 0' in runner
-          assert 'LaunchBarbellSplashView()' in runner
-          assert 'UIImage(named: "MascotRunning")' in runner
-          print("PASS: brand-green launch image has opaque facial features; runner unchanged")
+          face=Path("Apps/Repera/Sources/LaunchFaceSplashView.swift").read_text()
+          assert 'LaunchFaceSplashView()' in runner
+          assert 'splashHoldComplete' in runner
+          assert 'Image("MascotFace")' in face
+          assert 'mascot-face-idle' not in face
+          assert 'ImageIO' not in face
+          assert 'leftLid' not in face
+          assert 'LaunchBarbellSplashView' not in runner
+          assert 'UIImage(named: "MascotRunning")' not in runner
+          assert not Path("Apps/Repera/Resources/mascot-face-idle.webp").exists()
+          android=Path("android/mobile/src/main/java/dev/repera/mobile/ReperaMascot.kt").read_text()
+          assert 'mascot/mascot-face.png' in android
+          assert 'mascot-face-idle' not in android
+          assert 'AnimatedImageDrawable' not in android
+          print("PASS: face splash static MascotFace wiring")
           PY

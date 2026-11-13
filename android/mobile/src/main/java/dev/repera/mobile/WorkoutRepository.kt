@@ -2010,20 +2010,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             exercises.getJSONObject(nextIndex).optString("blockId") == blockId) {
             nextIndex++
         }
-        if (nextIndex == exercises.length()) {
-            finishInPlace(state, session)
-            ReperaAnalytics.track(
-                ReperaAnalytics.Event.WORKOUT_BLOCK_COMPLETED,
-                mapOf(
-                    "feature_area" to "training",
-                    "workout_type" to analyticsWorkoutType(session),
-                    "wod_format" to format.wireName,
-                    "result" to "success"
-                )
-            )
-            return null
+        // Score del bloque ≠ terminar el entreno: si hay más bloques se avanza;
+        // si es el último, el atleta sigue en Play y cierra con Terminar.
+        if (nextIndex < exercises.length()) {
+            session.put("currentIndex", nextIndex).put("phase", "ready")
         }
-        session.put("currentIndex", nextIndex).put("phase", "ready")
         save(state)
         ReperaAnalytics.track(
             ReperaAnalytics.Event.WORKOUT_BLOCK_COMPLETED,
@@ -4468,8 +4459,19 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             notes = session.optString("notes").takeIf {it.isNotBlank()},
             navigationEntries = (0 until exercises.length()).map { n ->
                 val entry=exercises.getJSONObject(n)
-                ActiveExerciseNavigation(n,entry.getJSONObject("exercise").exerciseDisplayName(),
-                    entry.optString("blockId"),entry.optString("blockKind"),entry.optBoolean("isCompleted"))
+                val ex = entry.getJSONObject("exercise")
+                val plan = entry.optJSONArray("plannedSets") ?: JSONArray()
+                val sets = plan.length()
+                val reps = plan.optJSONObject(0)?.optInt("targetReps")
+                val unit = entry.optString("quantityUnit").takeIf { it.isNotBlank() }
+                val detail = timerPrescriptionDetailLine(plan, entry, ex, unit, sets, reps)
+                ActiveExerciseNavigation(
+                    n, ex.exerciseDisplayName(),
+                    entry.optString("blockId"), entry.optString("blockKind"),
+                    entry.optBoolean("isCompleted"),
+                    detailLine = detail,
+                    exerciseId = entry.optString("exerciseId").ifBlank { ex.optString("id") }
+                )
             },
             pendingSets = if (current.optString("blockKind") == "wod") emptyList()
                 else (finishedWork until plan.length()).mapNotNull { n ->
@@ -4499,6 +4501,40 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 )
             }
         )
+    }
+
+    /** Dosis bajo el nombre en el reloj: Escalera = 21-15-9; fuerza = 3×8. */
+    private fun timerPrescriptionDetailLine(
+        plan: JSONArray,
+        entry: JSONObject,
+        ex: JSONObject,
+        unit: String?,
+        sets: Int,
+        reps: Int?,
+    ): String? {
+        if (ex.optString("id").equals("rest", true) ||
+            ex.optString("name").equals("REST", true)
+        ) {
+            return entry.optInt("restSeconds").takeIf { entry.has("restSeconds") && it > 0 }
+                ?.let { "$it s" } ?: "Descanso"
+        }
+        if (sets <= 0) return null
+        val wave = (0 until plan.length()).mapNotNull { i ->
+            plan.optJSONObject(i)?.optInt("targetReps")?.takeIf {
+                plan.optJSONObject(i)?.has("targetReps") == true
+            }
+        }
+        if (reps != null && reps > 0 && unit == "calories") return "$reps cal"
+        if (reps != null && reps > 0 && unit == "meters") return "$reps m"
+        if (wave.size >= 2 && wave.toSet().size > 1) {
+            return wave.joinToString("-")
+        }
+        if (sets > 0 && reps != null && reps > 0) {
+            val same = wave.all { it == wave.first() }
+            return if (same && sets > 1) "${sets}×$reps" else "$reps"
+        }
+        if (sets > 0 && reps != null) return "${sets}×${reps.coerceAtLeast(1)}"
+        return null
     }
 }
 
@@ -4553,7 +4589,15 @@ data class ActiveWorkout(
 data class PendingSetSummary(val id:String,val reps:Int,val weightKg:Double?)
 /** Apple live row: a recorded straight work set (completed) or a pending planned set. null liveRows = use the classic form. */
 data class LiveRowSummary(val id:String,val reps:Int,val weightKg:Double?,val deficitCm:Int?,val durationSeconds:Int?,val rir:Double?,val completed:Boolean)
-data class ActiveExerciseNavigation(val index:Int,val name:String,val blockId:String,val blockKind:String,val completed:Boolean)
+data class ActiveExerciseNavigation(
+    val index: Int,
+    val name: String,
+    val blockId: String,
+    val blockKind: String,
+    val completed: Boolean,
+    val detailLine: String? = null,
+    val exerciseId: String = "",
+)
 
 data class WodExecution(
     val format: String,

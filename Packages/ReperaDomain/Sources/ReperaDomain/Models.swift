@@ -1392,7 +1392,7 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
     public var summaryLine: String {
         if isRest {
             let sec = restSeconds ?? 60
-            return sec >= 60 ? "\(sec / 60)' REST" : "\(sec)\" REST"
+            return "\(sec) s"
         }
         var parts: [String] = []
         if let scheme = repScheme, scheme.count >= 2 {

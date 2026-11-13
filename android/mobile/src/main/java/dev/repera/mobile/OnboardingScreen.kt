@@ -39,7 +39,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material3.Button
@@ -212,7 +212,7 @@ private fun OnboardingWelcomeHighlights() {
     val items = listOf(
         Icons.Outlined.Timer to "Rutinas",
         Icons.Outlined.PhotoCamera to "Escanea",
-        Icons.Outlined.ShowChart to "Estadísticas",
+        Icons.AutoMirrored.Outlined.ShowChart to "Estadísticas",
         Icons.Outlined.MonitorHeart to "Recuperación",
         Icons.Outlined.Watch to "Wear OS",
         Icons.Outlined.Psychology to "IA"

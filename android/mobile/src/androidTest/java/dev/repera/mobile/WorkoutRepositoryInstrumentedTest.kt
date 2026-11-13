@@ -196,7 +196,15 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals("ELAPSED_TIME", active.wod!!.capture)
         assertEquals(2, active.wod.movements.size)
         assertThrows(IllegalStateException::class.java) { repo.next() }
-        assertNull(repo.recordWodScore(null, null, 387))
+        // Score del bloque no archiva: el atleta sigue en Play.
+        assertNotNull(repo.recordWodScore(null, null, 387))
+        val mid = JSONObject(String(local.read()!!))
+        assertTrue(mid.has("activeSession"))
+        val liveScore = mid.getJSONObject("activeSession")
+            .getJSONArray("wodResults").getJSONObject(0)
+        assertEquals(blockId, liveScore.getString("id"))
+        assertEquals(387, liveScore.getInt("elapsedSeconds"))
+        repo.finish()
         val after = JSONObject(String(local.read()!!))
         assertFalse(after.has("activeSession"))
         val recorded = after.getJSONArray("workouts").getJSONObject(0)
@@ -255,7 +263,8 @@ class WorkoutRepositoryInstrumentedTest {
         assertThrows(IllegalArgumentException::class.java) {
             repo.recordWodScore(null, 3, null)
         }
-        assertNull(repo.recordWodScore(3, 7, null))
+        assertNotNull(repo.recordWodScore(3, 7, null))
+        repo.finish()
         val archive = JSONObject(String(local.read()!!)).getJSONArray("workouts").getJSONObject(0)
         assertEquals(1, archive.getJSONArray("wodResults").length())
         assertEquals(3, archive.getJSONArray("wodResults").getJSONObject(0)
@@ -311,7 +320,8 @@ class WorkoutRepositoryInstrumentedTest {
         val current = repo.startRoutine(createdId)
         assertEquals("amrap", current.wod?.format)
         assertEquals("Burpee", current.wod?.movements?.single()?.name)
-        assertNull(repo.recordWodScore(4, 6, null))
+        assertNotNull(repo.recordWodScore(4, 6, null))
+        repo.finish()
         val state = JSONObject(String(store.read()!!))
         val score = state.getJSONArray("workouts").getJSONObject(0)
             .getJSONArray("wodResults").getJSONObject(0)

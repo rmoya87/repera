@@ -23,6 +23,12 @@ internal object RestNotifier {
 
     fun notifyRest(context: Context, label: String, remainingSeconds: Int,sound:Boolean=true,haptic:Boolean=true) {
         if(haptic) vibrate(context)
+        // Con la app en primer plano el reloj ya muestra el descanso; no banner.
+        val process = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(process)
+        if (process.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+            return
+        }
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED

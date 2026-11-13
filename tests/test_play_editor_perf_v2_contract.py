@@ -102,6 +102,21 @@ class PlayEditorPerfV2Contract(unittest.TestCase):
         self.assertIn("selectedEntryIndex == index", ANDROID_EDITOR)
         self.assertIn("PlayCompactEntryRow(", ANDROID_EDITOR)
         self.assertIn("play_entry_menu", ANDROID_EDITOR)
+        # Nombres en negro (paridad iOS); no verde al seleccionar.
+        compact = ANDROID_EDITOR.split("internal fun PlayCompactEntryRow(", 1)[1].split(
+            "@Composable\ninternal fun CompactEntrySummaryRow(", 1
+        )[0]
+        self.assertIn("color = MaterialTheme.colorScheme.onSurface", compact)
+        self.assertNotIn("brandGreen", compact)
+        # Cabecera Play: título + timer + ⋯ más altos/grandes.
+        header = ANDROID_EDITOR.split("val playHeader = onTimer != null", 1)[1].split(
+            "ConfirmDeleteMultiExerciseBlockDialog(", 1
+        )[0]
+        self.assertIn("defaultMinSize(minHeight = 52.dp)", header)
+        self.assertIn("44.dp", header)
+        self.assertIn("22.dp", header)
+        self.assertIn("play_block_header", header)
+        self.assertIn("size = headerIconSize", header)
 
     def test_android_editor_single_expanded_entry(self):
         self.assertIn("var expandedEntryId by rememberSaveable", ANDROID_EDITOR)

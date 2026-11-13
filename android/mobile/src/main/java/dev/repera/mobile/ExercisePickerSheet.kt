@@ -1,18 +1,21 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -22,8 +25,6 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,14 +39,27 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Spacer
+
+/** Últimos ejercicios del historial (máx. [limit]; paridad iOS `recentExerciseIDs`). */
+internal fun recentExerciseIdsFromHistory(
+    history: List<WorkoutHistoryEntry>,
+    limit: Int = 5,
+): List<String> {
+    val seen = linkedSetOf<String>()
+    for (session in history) {
+        for (move in session.movements) {
+            val id = move.catalogExerciseId
+            if (id.isBlank()) continue
+            if (seen.add(id) && seen.size >= limit) return seen.toList()
+        }
+    }
+    return seen.toList()
+}
 
 /**
  * Selector de ejercicio a pantalla completa (paridad ExercisePicker iOS):
- * título, búsqueda, chips musculares, Recientes y multiselección.
+ * título → búsqueda → chips musculares → Recientes (máx. 5, solo «Todos») y multiselección.
  */
 @Composable
 internal fun ExercisePickerSheet(
@@ -83,8 +97,16 @@ internal fun ExercisePickerSheet(
             .toList()
     }
     val recentRows = remember(recentExerciseIds, exercises) {
-        recentExerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } }
+        recentExerciseIds
+            .mapNotNull { id -> exercises.firstOrNull { it.id == id } }
+            .take(5)
     }
+    val showsRecents =
+        allowsMultipleSelection &&
+            q.isEmpty() &&
+            !favoritesOnly &&
+            muscleFilter == null &&
+            recentRows.isNotEmpty()
 
     ReperaFullscreenDialog(onDismissRequest = onDismiss) {
         Column(
@@ -106,13 +128,7 @@ internal fun ExercisePickerSheet(
                     onClick = onDismiss,
                     modifier = Modifier.testTag("exercise_picker_back")
                 )
-                Text(
-                    "Elegir ejercicio",
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Spacer(Modifier.weight(1f))
                 ReperaToolbarGlassIconButton(
                     icon = Icons.Outlined.Tune,
                     contentDescription = "Filtrar",
@@ -121,33 +137,54 @@ internal fun ExercisePickerSheet(
                     modifier = Modifier.testTag("exercise_picker_filter")
                 )
             }
+            // Título grande antes del buscador (paridad iOS / Biblioteca).
+            ReperaPageHeader(
+                title = "Elegir ejercicio",
+                trailing = {},
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 4.dp)
+                    .testTag("exercise_picker_title")
+            )
+            // Mismo inset horizontal 16 que LazyColumn → alineado con el listado.
             ReperaSearchField(
                 value = query,
                 onValueChange = { query = it },
                 placeholder = "Buscar ejercicio",
                 modifier = Modifier
+                    .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .testTag("exercise_picker_search")
             )
+            // Chips de borde a borde; el aire 16 va como padding de contenido.
             Row(
                 Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Spacer(Modifier.width(16.dp))
                 MuscleFilterChip("Todos", selected = muscleFilter == null) { muscleFilter = null }
                 muscleOptions.take(8).forEach { muscle ->
                     MuscleFilterChip(muscle, selected = muscleFilter == muscle) { muscleFilter = muscle }
                 }
+                Spacer(Modifier.width(16.dp))
             }
             LazyColumn(
                 Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                if (allowsMultipleSelection && q.isEmpty() && recentRows.isNotEmpty()) {
-                    item { Text("Recientes", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp)) }
+                if (showsRecents) {
+                    item {
+                        Text(
+                            "Recientes",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
                     items(recentRows, key = { "recent-${it.id}" }) { entry ->
                         PickerRow(entry, aliases, selected.contains(entry.id), allowsMultipleSelection) {
                             if (allowsMultipleSelection) {
@@ -155,7 +192,13 @@ internal fun ExercisePickerSheet(
                             } else onPick(entry)
                         }
                     }
-                    item { Text("Todos (A–Z)", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp)) }
+                    item {
+                        Text(
+                            "Todos (A–Z)",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
                 }
                 if (filtered.isEmpty()) {
                     item {
@@ -200,11 +243,26 @@ internal fun ExercisePickerSheet(
 
 @Composable
 private fun MuscleFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val dark = isSystemInDarkTheme()
+    // No seleccionado: blanco en día / negro en noche (paridad toolbar glass).
+    val bg = when {
+        selected -> brandGreen
+        dark -> Color.Black
+        else -> Color.White
+    }
+    val border = if (selected) {
+        Color.Transparent
+    } else {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+    }
     Text(
         label,
         modifier = Modifier
             .clip(CircleShape)
-            .background(if (selected) brandGreen else MaterialTheme.colorScheme.surfaceVariant)
+            .background(bg, CircleShape)
+            .then(
+                if (selected) Modifier else Modifier.border(1.dp, border, CircleShape)
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface,

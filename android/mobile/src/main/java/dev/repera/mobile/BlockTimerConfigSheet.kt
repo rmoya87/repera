@@ -10,7 +10,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -23,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.repera.domain.WodClockSpec
+import dev.repera.domain.WodFormat
 
 /** Configuración manual al iniciar el reloj de un bloque libre (sin WOD). */
 internal data class ManualBlockTimerConfig(
@@ -32,8 +33,81 @@ internal data class ManualBlockTimerConfig(
 )
 
 /**
+ * Prescripción del reloj al abrir desde Play (cualquier formato).
+ * No depende de `active.wod` tras un flush async: Tabata/EMOM/… abren ya.
+ */
+internal data class BlockClockLaunchConfig(
+    val formatWire: String,
+    val workSeconds: Int = 20,
+    val restSeconds: Int = 10,
+    val rounds: Int = 8,
+    val intervalSeconds: Int = 60,
+    val timeCapMinutes: Int = 12,
+    val timeCapSeconds: Int? = null,
+    val restBetweenRoundsSeconds: Int = 0,
+    val stations: Int = 1,
+) {
+    fun toSpec(): WodClockSpec {
+        val format = WodFormat.fromWire(formatWire)
+        return WodClockSpec(
+            format = format,
+            blockTimeCapMinutes = timeCapMinutes.takeIf { it > 0 },
+            blockTimeCapSeconds = timeCapSeconds?.takeIf { it > 0 },
+            intervalSeconds = intervalSeconds.takeIf { it > 0 },
+            plannedIntervals = rounds.takeIf {
+                format == WodFormat.EMOM || format == WodFormat.DEATH_BY
+            },
+            rounds = rounds.coerceAtLeast(1),
+            workSeconds = workSeconds.coerceAtLeast(1),
+            restSeconds = restSeconds.coerceAtLeast(0),
+            restBetweenRoundsSeconds = restBetweenRoundsSeconds.coerceAtLeast(0),
+            stations = stations.coerceAtLeast(1),
+        )
+    }
+
+    companion object {
+        fun fromManual(config: ManualBlockTimerConfig) = BlockClockLaunchConfig(
+            formatWire = "tabata",
+            workSeconds = config.workSeconds,
+            restSeconds = config.restSeconds,
+            rounds = config.rounds.coerceAtLeast(1),
+        )
+
+        fun fromBlockDraft(block: BlockDraftUi, stations: Int = 1): BlockClockLaunchConfig {
+            val format = block.format.trim().ifBlank { "tabata" }
+            val defaultRounds = when (format) {
+                "tabata" -> 8
+                "forTime", "emom", "roundsForQuality", "partner" -> 4
+                else -> 1
+            }
+            val rounds = block.rounds.toIntOrNull()?.takeIf { it > 0 } ?: defaultRounds
+            val work = block.work.toIntOrNull()?.takeIf { it > 0 } ?: 20
+            val rest = block.rest.toIntOrNull()?.coerceAtLeast(0) ?: 10
+            val interval = block.interval.toIntOrNull()?.takeIf { it > 0 } ?: 60
+            val capMin = block.timeCap.toIntOrNull()?.takeIf { it > 0 } ?: 12
+            val capSec = block.capSeconds.toIntOrNull()?.takeIf { it in 0..59 }
+            val between = block.roundRest.toIntOrNull()?.coerceAtLeast(0) ?: 0
+            val exactCap = if (format == "forTime" && capSec != null) {
+                capMin * 60 + capSec
+            } else null
+            return BlockClockLaunchConfig(
+                formatWire = format,
+                workSeconds = work,
+                restSeconds = rest,
+                rounds = rounds,
+                intervalSeconds = interval,
+                timeCapMinutes = capMin,
+                timeCapSeconds = exactCap,
+                restBetweenRoundsSeconds = between,
+                stations = stations.coerceAtLeast(1),
+            )
+        }
+    }
+}
+
+/**
  * Configurar temporizador de bloque (paridad iOS WorkoutView.manualRoundDurationSheet):
- * sheet de abajo · inputs meta · trabajar por ronda + descanso opcional.
+ * sheet de abajo · trabajar por ronda + descansar entre rondas siempre visibles.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,23 +122,14 @@ fun BlockTimerConfigSheet(
 ) {
     var workMin by remember { mutableStateOf((initialWorkSeconds / 60).coerceIn(0, 120).toString()) }
     var workSec by remember { mutableStateOf((initialWorkSeconds % 60).coerceIn(0, 59).toString()) }
-    var restEnabled by remember { mutableStateOf(initialRestSeconds > 0) }
     var restMin by remember {
-        mutableStateOf(
-            ((if (initialRestSeconds > 0) initialRestSeconds else 60) / 60)
-                .coerceIn(0, 10).toString()
-        )
+        mutableStateOf((initialRestSeconds / 60).coerceIn(0, 10).toString())
     }
     var restSec by remember {
-        mutableStateOf(
-            ((if (initialRestSeconds > 0) initialRestSeconds else 60) % 60)
-                .coerceIn(0, 59).toString()
-        )
+        mutableStateOf((initialRestSeconds % 60).coerceIn(0, 59).toString())
     }
     val workTotal = (workMin.toIntOrNull() ?: 0) * 60 + (workSec.toIntOrNull() ?: 0)
-    val restTotal = if (restEnabled) {
-        (restMin.toIntOrNull() ?: 0) * 60 + (restSec.toIntOrNull() ?: 0)
-    } else 0
+    val restTotal = (restMin.toIntOrNull() ?: 0) * 60 + (restSec.toIntOrNull() ?: 0)
     val canStart = workTotal > 0
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -110,34 +175,13 @@ fun BlockTimerConfigSheet(
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
             )
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .testTag("block_timer_rest_toggle"),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Descanso entre series",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(
-                    checked = restEnabled,
-                    onCheckedChange = { restEnabled = it },
-                    colors = reperaSwitchColors()
-                )
-            }
-            if (restEnabled) {
-                TimerDurationRow(
-                    title = "Tiempo de descanso",
-                    minutes = restMin,
-                    seconds = restSec,
-                    onMinutes = { restMin = it.filter(Char::isDigit).take(2) },
-                    onSeconds = { restSec = it.filter(Char::isDigit).take(2) }
-                )
-            }
+            TimerDurationRow(
+                title = "Descansar entre rondas",
+                minutes = restMin,
+                seconds = restSec,
+                onMinutes = { restMin = it.filter(Char::isDigit).take(2) },
+                onSeconds = { restSec = it.filter(Char::isDigit).take(2) }
+            )
             Button(
                 colors = reperaPrimaryButtonColors(),
                 onClick = { onStart(workTotal, restTotal) },

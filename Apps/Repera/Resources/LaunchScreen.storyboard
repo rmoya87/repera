@@ -15,7 +15,7 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <!-- Primera imagen nativa: una sola ilustración RGB opaca con muñeco y #30D158, a pantalla completa. -->
+                            <!-- Primera imagen nativa: cara de la mascota RGB opaca sobre #30D158, a pantalla completa. -->
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="ReperaNativeOpaqueHero" translatesAutoresizingMaskIntoConstraints="NO" id="Mascot-Splash">
                                 <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                             </imageView>

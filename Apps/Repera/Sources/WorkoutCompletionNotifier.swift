@@ -67,9 +67,10 @@ final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // Preserva avisos de descanso, clases y temporizadores en primer plano.
-        // El delegado único no debe silenciar las demás notificaciones de Repera.
-        completionHandler([.banner, .sound])
+        // Con la app en primer plano la UI y RestFeedback ya cubren el evento
+        // (temporizador, descanso, fin de entreno…). No mostrar banner/lista.
+        // En segundo plano iOS entrega la notificación local con normalidad.
+        completionHandler([])
     }
 
     func userNotificationCenter(

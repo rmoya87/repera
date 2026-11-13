@@ -99,6 +99,13 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("OGWorkoutMetaChip", PREVIEW)
         self.assertIn(".toolbar(.hidden, for: .tabBar)", PLAN)
         self.assertIn("ogDiscardChangesConfirm", PLAN)
+        # Descartar cambios = sheet fitted, no confirmationDialog/popover.
+        discard_mod = THEME.split("struct OGDiscardChangesConfirm", 1)[1].split(
+            "extension View {", 1
+        )[0]
+        self.assertIn("OGConfirmSheet(", discard_mod)
+        self.assertIn(".sheet(isPresented:", discard_mod)
+        self.assertNotIn(".confirmationDialog(", discard_mod)
         self.assertIn("ogUndoToast", PLAN)
         self.assertIn("hideNativeBack: true", PLAN)
         self.assertIn(".navigationBarBackButtonHidden(true)", PLAN)
@@ -204,6 +211,16 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("showWorkoutUndoSnackbar", ANDROID_UI)
         self.assertIn("WorkoutUndoSnackbarHost", ANDROID_EDITOR)
         self.assertIn("ConfirmDeleteMultiExerciseBlockDialog", ANDROID_UI)
+        delete_block = ANDROID_UI.split(
+            "fun ConfirmDeleteMultiExerciseBlockDialog", 1
+        )[1].split("@Composable", 1)[0]
+        self.assertIn("ReperaConfirmSheet(", delete_block)
+        self.assertNotIn("AlertDialog(", delete_block)
+        discard = ANDROID_UI.split("fun DiscardChangesDialog", 1)[1].split(
+            "fun ConfirmDeleteMultiExerciseBlockDialog", 1
+        )[0]
+        self.assertIn("ReperaConfirmSheet(", discard)
+        self.assertNotIn("AlertDialog(", discard)
         self.assertIn("nonRestExerciseCount", ANDROID_EDITOR)
         self.assertIn("cloneForUndo", ANDROID_EDITOR)
         self.assertIn("WorkoutUndoSnackbarHost", ANDROID_PLAY)
@@ -214,6 +231,14 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("presentPlayUndoToast", WORKOUT_IOS)
         self.assertIn("playBlockDeleteConfirmID", WORKOUT_IOS)
         self.assertIn("onUndoSetDelete", WORKOUT_IOS)
+        # Play/Plan: eliminar bloque y sustituir = sheet, no confirmationDialog.
+        self.assertIn('title: "¿Eliminar este bloque?"', WORKOUT_IOS)
+        self.assertIn('title: "¿Sustituir ejercicio y reiniciar sus series?"', WORKOUT_IOS)
+        self.assertNotIn(
+            '.confirmationDialog(\n            "¿Eliminar este bloque?"',
+            WORKOUT_IOS,
+        )
+        self.assertIn('title: "¿Eliminar este bloque?"', PLAN)
         wod_editor = PLAN.split("struct WODMovementEditor", 1)[1][:20000]
         self.assertIn("ogUndoToast($undoToast)", wod_editor)
         self.assertIn("presentUndoToast", wod_editor)

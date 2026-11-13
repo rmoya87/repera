@@ -41,8 +41,10 @@ class PlayWODContractTests(unittest.TestCase):
         screen = source.split("private func content(_ session: WorkoutSession)", 1)[1]
         screen = screen.split("private func workoutExerciseRow(", 1)[0]
         exercise_rows = screen.split("ForEach(block.indexes, id:", 1)[1]
-        exercise_rows = exercise_rows.split("if finishedTimedBlockID", 1)[0]
+        exercise_rows = exercise_rows.split("WorkoutWODInsertActions(", 1)[0]
         self.assertIn("PlayEditableSetsView(", exercise_rows)
+        self.assertNotIn('Image(systemName: "arrow.right")', exercise_rows)
+        self.assertNotIn("Registra las series realizadas", screen)
         self.assertIn("exerciseEntry: entry", exercise_rows)
         self.assertIn("openedSetID: $openedSetID", exercise_rows)
         self.assertIn("playBlockExerciseRows(", screen)
@@ -58,9 +60,20 @@ class PlayWODContractTests(unittest.TestCase):
         source = self.read("WorkoutView.swift")
         handler = source.split("private func presentWODConfirmIfNeeded()", 1)[1]
         handler = handler.split("private func presentScoreEditor(", 1)[0]
-        self.assertIn("finishedTimedBlockID = current.blockId ?? current.id", handler)
+        # EMOM/Tabata/fuerza: el reloj acaba y el atleta sigue sin banner ni
+        # «Finalizar bloque» forzado.
+        self.assertIn("resultCapture == .perMovementSets", handler)
         self.assertNotIn("store.finishCurrentTimedBlock()", handler)
-        self.assertIn('Button("Finalizar bloque")', source)
+        self.assertNotIn("finishedTimedBlockID", handler)
+        self.assertNotIn("Registra las series realizadas", source)
+        self.assertNotIn('Button("Finalizar bloque")', source)
+        # Guardar el score sembrado por el reloj tampoco archiva la sesión.
+        score_save = source.split("store.applyWODResult(result)", 1)[1].split(
+            '.id("\\(block.id.uuidString)', 1
+        )[0]
+        self.assertIn("pendingWODConfirm = nil", score_save)
+        self.assertNotIn("store.finishCurrentTimedBlock()", score_save)
+        self.assertNotIn("closeFlow()", score_save)
 
     def test_timer_can_be_minimized_during_emom_and_tabata(self):
         source = self.read("WorkoutView.swift")
@@ -99,6 +112,19 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertIn("inlineWODScoreEditor(block, format: format, session: session)", play)
         self.assertIn('Text("Resultado del bloque")', play)
         self.assertIn("inlineWODScoreEditor(block, format: format, session: session)", play)
+        # Sin tiempo verde duplicado a la derecha del título (ya va en el campo).
+        score_header = play.split("private func inlineWODScoreEditor(", 1)[1].split(
+            "private func openBlockTimer(", 1
+        )[0]
+        self.assertNotIn("existing?.summaryLabel", score_header)
+        self.assertNotIn("Sin registrar", score_header)
+        self.assertNotIn('Text("Resultado del bloque ·', play)
+        self.assertNotIn(
+            'Image(systemName: "checkmark.circle.fill")',
+            play.split("private func workoutExerciseRow(", 1)[1].split(
+                "private enum PlayFormatField", 1
+            )[0],
+        )
         self.assertNotIn('Text("Resultado · \\(format.displayName)")', play)
         self.assertNotIn(".background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))", play.split("private func inlineWODScoreEditor(", 1)[1].split("private func openBlockTimer(", 1)[0])
         self.assertIn("WODResultInlineEditor(", play)

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Bloque agrupado en Play (navegación por blockId). */
@@ -55,7 +56,10 @@ internal fun PlayCircleIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    testTag: String = ""
+    testTag: String = "",
+    /** Play: 44/22 para destacar; Crear/Editar conserva 34/18. */
+    size: Dp = 34.dp,
+    iconSize: Dp = 18.dp,
 ) {
     Surface(
         onClick = onClick,
@@ -67,14 +71,14 @@ internal fun PlayCircleIconButton(
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
         ),
         modifier = modifier
-            .size(34.dp)
+            .size(size)
             .then(if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier)
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Icon(
                 icon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(iconSize),
                 tint = MaterialTheme.colorScheme.onSurface
             )
         }

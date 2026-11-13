@@ -560,13 +560,55 @@ fun ReperaMobileScreen(
         // I-42: Minimizar reloj → barra flotante sobre la sesión (no destruye el timer).
         var clockMinimized by rememberSaveable(accountId) { mutableStateOf(false) }
         var manualClockConfig by remember(accountId) { mutableStateOf<ManualBlockTimerConfig?>(null) }
-        LaunchedEffect(activeWorkout?.id, activeWorkout?.index) {
+        var launchClockConfig by remember(accountId) { mutableStateOf<BlockClockLaunchConfig?>(null) }
+        /**
+         * Fin del reloj (cap / Finalizar): volver a Play y parar el cronómetro.
+         * Conserva el Formato del bloque (Tabata/EMOM/…); iOS tampoco lo borra.
+         * No anular [launchClockConfig] *antes* del pop: si no, el composable
+         * «reloj» ve wod/manual/launch nulos y hace otro pop → sale del entreno.
+         */
+        fun finishBlockClockAndReturnToPlay() {
+            clockMinimized = false
+            onWodTimerAction("reset")
+            val atPlay = navController.popBackStack("entreno-activo", inclusive = false)
+            if (!atPlay) {
+                navController.navigate("entreno-activo") { launchSingleTop = true }
+            }
+            launchClockConfig = null
+            manualClockConfig = null
+            ManualClockServiceStore.clear(activityContext)
+        }
+        /** Al cambiar Formato en Play: invalidar un reloj libre/stale para que
+         * el próximo start use Tabata/EMOM/… del draft (no el manual 60s). */
+        fun invalidateBlockClockForFormatChange() {
+            clockMinimized = false
+            launchClockConfig = null
+            manualClockConfig = null
+            ManualClockServiceStore.clear(activityContext)
+            onWodTimerAction("reset")
+        }
+        var lastPlayFormatSessionId by remember(accountId) { mutableStateOf<String?>(null) }
+        LaunchedEffect(activeWorkout?.id, activeWorkout?.index, activeWorkout?.wod?.format) {
             if (activeWorkout == null) {
                 clockMinimized = false
                 manualClockConfig = null
+                launchClockConfig = null
                 ManualClockServiceStore.clear(activityContext)
-            } else if (activeWorkout.wod == null) {
-                manualClockConfig = ManualClockServiceStore.read(activityContext, accountId, activeWorkout)
+                lastPlayFormatSessionId?.let { sid ->
+                    PlayBlockFormatStore.clearSession(activityContext, accountId, sid)
+                }
+                lastPlayFormatSessionId = null
+            } else {
+                lastPlayFormatSessionId = activeWorkout.id
+                if (activeWorkout.wod != null) {
+                    // Formato cronometrado en sesión: no restaurar reloj libre stale.
+                    ManualClockServiceStore.clear(activityContext)
+                    if (launchClockConfig == null) manualClockConfig = null
+                } else if (launchClockConfig == null) {
+                    manualClockConfig = ManualClockServiceStore.read(
+                        activityContext, accountId, activeWorkout
+                    )
+                }
             }
         }
         // iOS restoresAddSheetAfterPage: reabrir DayPlus al volver de Favoritos/Tempo.
@@ -781,16 +823,20 @@ fun ReperaMobileScreen(
             // Mapa siempre a sangre, incluso si se oculta el menú por bloqueo táctil.
             val mapUnderTabs = currentRoute == "en-vivo"
             val inicioEdge = currentRoute == "inicio"
+            // Reloj LED: negro a sangre bajo status bar (si el host rellena
+            // statusBarsPadding queda la franja del Scaffold / theme).
+            val ledClockEdge = currentRoute == "reloj" ||
+                currentRoute.startsWith("reloj")
             // Con tab bar: el contenido llega al borde inferior y pasa por detrás
             // del menú flotante (solo se reserva el topBar/status).
             val hostPadding = when {
-                mapUnderTabs -> Modifier
+                mapUnderTabs || ledClockEdge -> Modifier
                 showTabBar -> Modifier.padding(top = padding.calculateTopPadding())
                 else -> Modifier.padding(padding)
             }
             // Inicio: HomeTab pinta surface bajo statusBars. Mapa: overlays con
-            // statusBarsPadding. Resto: host evita solapar iconos del sistema.
-            val statusPad = if (mapUnderTabs || inicioEdge) Modifier
+            // statusBarsPadding. Reloj: WodClockScreen pinta negro. Resto: host.
+            val statusPad = if (mapUnderTabs || inicioEdge || ledClockEdge) Modifier
             else Modifier.statusBarsPadding()
             val tabInset = if (showTabBar) tabBarChromeHeightDp else 0.dp
             androidx.compose.runtime.CompositionLocalProvider(
@@ -801,7 +847,14 @@ fun ReperaMobileScreen(
             ) {
             // Material motion: fade-through para destinos hermanos; transición
             // espacial corta para entrar/salir de pantallas de detalle.
-            // Las fases de entrada/salida usan el mismo reloj, incluido Back.
+            // Reloj fullscreen: vertical (Minimizar ↓ / Expandir ↑), no slide
+            // horizontal de detalle — si no, parece un corte sin animar.
+            val reduceMotion = remember(activityContext) {
+                reperaReduceMotion(activityContext)
+            }
+            val easeOutUi = androidx.compose.animation.core.CubicBezierEasing(
+                0.23f, 1f, 0.32f, 1f
+            )
             val tabFadeOut = androidx.compose.animation.core.tween<Float>(
                 durationMillis = 90
             )
@@ -818,60 +871,97 @@ fun ReperaMobileScreen(
                 durationMillis = 220,
                 easing = androidx.compose.animation.core.FastOutSlowInEasing
             )
+            val clockFade = androidx.compose.animation.core.tween<Float>(
+                durationMillis = if (reduceMotion) 120 else 200,
+                easing = easeOutUi
+            )
+            val clockSlide = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(
+                durationMillis = if (reduceMotion) 1 else 240,
+                easing = easeOutUi
+            )
+            fun isClockRoute(route: String?) =
+                route == "reloj" || route?.startsWith("reloj") == true
             NavHost(
                 navController = navController,
                 startDestination = "inicio",
                 modifier = Modifier.fillMaxSize(),
                 enterTransition = {
-                    val betweenTabs = initialState.destination.route in reperaTabRoutes &&
-                        targetState.destination.route in reperaTabRoutes
-                    if (betweenTabs) {
-                        androidx.compose.animation.fadeIn(animationSpec = tabFadeIn)
-                    } else {
-                        androidx.compose.animation.fadeIn(animationSpec = detailFadeIn) +
-                            androidx.compose.animation.slideInHorizontally(
-                                initialOffsetX = { it / 12 },
-                                animationSpec = detailSlide
-                            )
+                    val to = targetState.destination.route
+                    val from = initialState.destination.route
+                    val betweenTabs = from in reperaTabRoutes && to in reperaTabRoutes
+                    when {
+                        betweenTabs ->
+                            androidx.compose.animation.fadeIn(animationSpec = tabFadeIn)
+                        isClockRoute(to) ->
+                            androidx.compose.animation.fadeIn(animationSpec = clockFade) +
+                                androidx.compose.animation.slideInVertically(
+                                    initialOffsetY = { full -> if (reduceMotion) 0 else full / 5 },
+                                    animationSpec = clockSlide
+                                )
+                        else ->
+                            androidx.compose.animation.fadeIn(animationSpec = detailFadeIn) +
+                                androidx.compose.animation.slideInHorizontally(
+                                    initialOffsetX = { it / 12 },
+                                    animationSpec = detailSlide
+                                )
                     }
                 },
                 exitTransition = {
-                    val betweenTabs = initialState.destination.route in reperaTabRoutes &&
-                        targetState.destination.route in reperaTabRoutes
-                    if (betweenTabs) {
-                        androidx.compose.animation.fadeOut(animationSpec = tabFadeOut)
-                    } else {
-                        androidx.compose.animation.fadeOut(animationSpec = detailFadeOut) +
-                            androidx.compose.animation.slideOutHorizontally(
-                                targetOffsetX = { -it / 12 },
-                                animationSpec = detailSlide
-                            )
+                    val to = targetState.destination.route
+                    val from = initialState.destination.route
+                    val betweenTabs = from in reperaTabRoutes && to in reperaTabRoutes
+                    when {
+                        betweenTabs ->
+                            androidx.compose.animation.fadeOut(animationSpec = tabFadeOut)
+                        isClockRoute(to) ->
+                            // Play cede al reloj: solo fade (el reloj sube encima).
+                            androidx.compose.animation.fadeOut(animationSpec = clockFade)
+                        else ->
+                            androidx.compose.animation.fadeOut(animationSpec = detailFadeOut) +
+                                androidx.compose.animation.slideOutHorizontally(
+                                    targetOffsetX = { -it / 12 },
+                                    animationSpec = detailSlide
+                                )
                     }
                 },
                 popEnterTransition = {
-                    val betweenTabs = initialState.destination.route in reperaTabRoutes &&
-                        targetState.destination.route in reperaTabRoutes
-                    if (betweenTabs) {
-                        androidx.compose.animation.fadeIn(animationSpec = tabFadeIn)
-                    } else {
-                        androidx.compose.animation.fadeIn(animationSpec = detailFadeIn) +
-                            androidx.compose.animation.slideInHorizontally(
-                                initialOffsetX = { -it / 12 },
-                                animationSpec = detailSlide
-                            )
+                    val to = targetState.destination.route
+                    val from = initialState.destination.route
+                    val betweenTabs = from in reperaTabRoutes && to in reperaTabRoutes
+                    when {
+                        betweenTabs ->
+                            androidx.compose.animation.fadeIn(animationSpec = tabFadeIn)
+                        isClockRoute(from) ->
+                            // Minimizar: Play queda debajo; fade suave.
+                            androidx.compose.animation.fadeIn(animationSpec = clockFade)
+                        else ->
+                            androidx.compose.animation.fadeIn(animationSpec = detailFadeIn) +
+                                androidx.compose.animation.slideInHorizontally(
+                                    initialOffsetX = { -it / 12 },
+                                    animationSpec = detailSlide
+                                )
                     }
                 },
                 popExitTransition = {
-                    val betweenTabs = initialState.destination.route in reperaTabRoutes &&
-                        targetState.destination.route in reperaTabRoutes
-                    if (betweenTabs) {
-                        androidx.compose.animation.fadeOut(animationSpec = tabFadeOut)
-                    } else {
-                        androidx.compose.animation.fadeOut(animationSpec = detailFadeOut) +
-                            androidx.compose.animation.slideOutHorizontally(
-                                targetOffsetX = { it / 12 },
-                                animationSpec = detailSlide
-                            )
+                    val to = targetState.destination.route
+                    val from = initialState.destination.route
+                    val betweenTabs = from in reperaTabRoutes && to in reperaTabRoutes
+                    when {
+                        betweenTabs ->
+                            androidx.compose.animation.fadeOut(animationSpec = tabFadeOut)
+                        isClockRoute(from) ->
+                            // Minimizar: el LED baja hacia el dock (flecha ↓).
+                            androidx.compose.animation.fadeOut(animationSpec = clockFade) +
+                                androidx.compose.animation.slideOutVertically(
+                                    targetOffsetY = { full -> if (reduceMotion) 0 else full / 4 },
+                                    animationSpec = clockSlide
+                                )
+                        else ->
+                            androidx.compose.animation.fadeOut(animationSpec = detailFadeOut) +
+                                androidx.compose.animation.slideOutHorizontally(
+                                    targetOffsetX = { it / 12 },
+                                    animationSpec = detailSlide
+                                )
                     }
                 }
             ) {
@@ -1022,6 +1112,7 @@ fun ReperaMobileScreen(
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
                         exercises = overview?.exerciseEntries.orEmpty(),
+                        recentExerciseIds = recentExerciseIdsFromHistory(overview?.history.orEmpty()),
                         busy = busy || (activeWorkout != null && activeWorkout.draftRequestId!=requestId),
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
@@ -1197,6 +1288,7 @@ fun ReperaMobileScreen(
                         routine = draft,
                         saveStatus = editorSaveStatus(status),
                         exercises = overview?.exerciseEntries.orEmpty(),
+                        recentExerciseIds = recentExerciseIdsFromHistory(overview?.history.orEmpty()),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
@@ -1307,6 +1399,7 @@ fun ReperaMobileScreen(
                     if(draft==null || activeWorkout==null || editorSessionId.isBlank() || activeWorkout.id!=editorSessionId) {
                         LaunchedEffect(Unit) {navController.popBackStack()}
                     } else RoutineBlocksEditorScreen(draft,overview?.exerciseEntries.orEmpty(),busy,accountId=accountId,
+                        recentExerciseIds = recentExerciseIdsFromHistory(overview?.history.orEmpty()),
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         onReplace={blocks ->onUpdateActivePlan(editorSessionId,draft.id,blocks) {navController.popBackStack()}},
                         onBack={navController.popBackStack()},loadGuideProvider=loadGuideProvider,
@@ -1329,7 +1422,6 @@ fun ReperaMobileScreen(
                             onNext, onFinish,
                             onDiscardSession,
                             onOpenClock = {
-                                manualClockConfig = null
                                 clockMinimized = false
                                 navController.navigate("reloj")
                             },
@@ -1353,12 +1445,31 @@ fun ReperaMobileScreen(
                                 clockMinimized = false
                                 navController.navigate("reloj")
                             },
+                            onFinishMinimizedClock = {
+                                onWodTimerAction("finish")
+                                finishBlockClockAndReturnToPlay()
+                            },
+                            onBlockFormatChanged = { invalidateBlockClockForFormatChange() },
+                            manualClockConfig = manualClockConfig,
+                            launchClockConfig = launchClockConfig,
                             importableRoutines = overview?.routineEntries.orEmpty(),
                             overview = overview,
                             onLaunchManualClock = { config ->
                                 manualClockConfig = config
+                                launchClockConfig = BlockClockLaunchConfig.fromManual(config)
                                 ManualClockServiceStore.save(activityContext, accountId, workout.id, workout.index, config)
                                 clockMinimized = false
+                                // Reset: un elapsed previo «Finalizado» cerraba el reloj al abrir.
+                                onWodTimerAction("reset")
+                                onWodTimerAction("start")
+                                navController.navigate("reloj")
+                            },
+                            onLaunchBlockClock = { config ->
+                                launchClockConfig = config
+                                manualClockConfig = null
+                                clockMinimized = false
+                                onWodTimerAction("reset")
+                                onWodTimerAction("start")
                                 navController.navigate("reloj")
                             },
                             loadGuideProvider = loadGuideProvider,
@@ -1477,7 +1588,8 @@ fun ReperaMobileScreen(
                 composable("reloj") {
                     val clockWorkout = activeWorkout
                     if (clockWorkout != null &&
-                        (clockWorkout.wod != null || manualClockConfig != null)
+                        (clockWorkout.wod != null || manualClockConfig != null ||
+                            launchClockConfig != null)
                     ) {
                         WodClockScreen(
                             active = clockWorkout,
@@ -1486,14 +1598,31 @@ fun ReperaMobileScreen(
                             onTimerAction = onWodTimerAction,
                             onTimerTick = onWodTimerTick,
                             onBack = {
+                                // Minimizar: conservar launch/manual para el dock en Play.
                                 clockMinimized = true
-                                navController.popBackStack()
+                                navController.popBackStack("entreno-activo", inclusive = false)
+                            },
+                            onFinished = {
+                                // Cap / Finalizar → Play (nunca cerrar el entreno).
+                                finishBlockClockAndReturnToPlay()
                             },
                             exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                             manualConfig = manualClockConfig,
+                            launchConfig = launchClockConfig,
                         )
                     } else {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
+                        // Sin config: volver a Play, no hacer pop genérico (puede
+                        // sacar del entreno si reloj quedó huérfano).
+                        LaunchedEffect(Unit) {
+                            val atPlay = navController.popBackStack(
+                                "entreno-activo", inclusive = false
+                            )
+                            if (!atPlay) {
+                                navController.navigate("entreno-activo") {
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
                     }
                 }
                 composable("deportes") {
@@ -1831,6 +1960,7 @@ fun ReperaMobileScreen(
                             routine = routine,
                             saveStatus=editorSaveStatus(status),
                             exercises = editorOverview.exerciseEntries,
+                            recentExerciseIds = recentExerciseIdsFromHistory(editorOverview.history),
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
                             importableRoutines = editorOverview.routineEntries,
@@ -1930,6 +2060,7 @@ fun ReperaMobileScreen(
                         routine = draft,
                         saveStatus = editorSaveStatus(status),
                         exercises = overview?.exerciseEntries.orEmpty(),
+                        recentExerciseIds = recentExerciseIdsFromHistory(overview?.history.orEmpty()),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
@@ -2051,6 +2182,7 @@ fun ReperaMobileScreen(
                         routine = panelRoutine,
                         saveStatus=editorSaveStatus(status),
                         exercises = overview?.exerciseEntries.orEmpty(),
+                        recentExerciseIds = recentExerciseIdsFromHistory(overview?.history.orEmpty()),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),

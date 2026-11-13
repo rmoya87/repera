@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-12 (auditoría 2 Play).
+Última actualización: 2026-11-13 (Splash cara estática; sin idle animado).
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -176,6 +176,64 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Docs que contradigan el código.
 
 ### Lecciones nativas (no repetir)
+
+#### Splash — solo cara estática, sin idle animado (13/11/2026)
+- El storyboard nativo **no anima**. Párpados/`Canvas` o idle GIF/WebP con
+  blends entre poses se ven a trompicones / falsos.
+- Fix: splash SwiftUI/Compose = `MascotFace` / `mascot-face.png` estático
+  sobre `#30D158`; hold ~1.6 s. Sin `mascot-face-idle.*`.
+- Contrato: `tests/test_splash_face_motion_contract.py`.
+
+#### Apple — DayPlus: iconos y textos desincronizados al reabrir (13/11/2026)
+- Al cerrar «Escanear pizarra» o reabrir «Añadir entreno» tras un push, el sheet
+  reanima el layout: los `Text` se interpolan y los SF Symbols se quedan o
+  saltan. Causa: hijos sin grupo de geometría en la transición del detent /
+  presentación.
+- Fix: `.geometryGroup()` en cada `menuLabel` / `sourceRow` y en el `VStack` del
+  menú (`DayPlusSheet`, `BoardScanSourceSheet`).
+- Contrato: `tests/test_exercise_picker_layout_contract.py::test_day_plus_menu_rows_geometry_group`.
+
+#### Android — Fin del reloj cerraba el entreno (13/11/2026)
+- `onFinished` anulaba `launchClockConfig` y hacía `popBackStack()`. El
+  composable `reloj` veía wod/manual/launch nulos y disparaba **otro** pop →
+  salía de `entreno-activo` (parecía «cerrar el entreno»).
+- Fix: `finishBlockClockAndReturnToPlay` hace `popBackStack("entreno-activo")`
+  **antes** de anular launch. Minimizar también pop a `entreno-activo`.
+  **No** borrar Formato al acabar (paridad iOS).
+- Contrato: `tests/test_play_timer_exercise_list_contract.py::test_timer_end_returns_to_play_without_finishing_workout`,
+  `tests/test_workout_timed_rounds_contract.py::test_android_tabata_skips_manual_config_sheet`.
+
+#### Android — Tabata/EMOM en Play vuelve a Sin formato al Finalizar reloj (13/11/2026)
+- `runWorkoutAction` con `if (busy) return` tiraba el flush; `onDispose` flush
+  al ir a `reloj` chocaba con busy; `toDraft()` devolvía null por inputs
+  inválidos (silent); al remount `playBlocks` leía draft vacío → «Sin formato».
+- Fix: `enqueueActivePlanUpdate`; `suppressDisposeFlush`; `ensurePlayDraftable`;
+  `PlayBlockFormatStore` (prefs por sesión/bloque) + reaplicar al montar Play y
+  re-flush; Tabata/EMOM siempre `fromBlockDraft`.
+- Contrato: `tests/test_workout_timed_rounds_contract.py::test_android_tabata_skips_manual_config_sheet`,
+  `tests/test_play_timer_exercise_list_contract.py::test_timer_end_returns_to_play_without_finishing_workout`.
+
+#### Android — Tabata / formatos no abren el reloj (13/11/2026)
+- Gate miraba `workout.wod` stale → sheet; o `changeWodTimer` con `if (busy)`
+  no-op durante flush; o elapsed previo «Finalizado» + auto-dismiss al abrir.
+- Fix: `BlockClockLaunchConfig` + `reset`/`start` al abrir; timer prefs sin
+  gate `busy`; auto-dismiss solo si el cap se alcanza *en esta visita*;
+  `onFormatChanged` → flush + invalidate; sembrar 20/10×8. Ver también lección
+  «Tabata/EMOM en Play vuelve a Sin formato».
+- Contrato: `tests/test_workout_timed_rounds_contract.py::test_android_tabata_skips_manual_config_sheet`.
+
+#### Android — Minimizar reloj libre sin barra (13/11/2026)
+- `MinimizedWodClockBar` hacía `active.wod ?: return`. En fuerza/libre el reloj
+  usa `manualClockConfig` (Tabata), no `active.wod`: Minimizar ponía
+  `clockMinimized=true` y pop a Play, pero el dock no se pintaba → el timer
+  «desaparecía».
+- Fix: aceptar `manualConfig`, construir `WodClockSpec` Tabata, y en Play
+  mostrar la barra si `wod != null || manualClockConfig != null`. Pasar el
+  config desde `ReperaMobileScreen`.
+- Dock = overlay `BottomCenter` (no ítem Lazy); botones Continuar/Pausar +
+  Finalizar. `WodClockScreen` solo auto-`onFinished` al *pasar* a finished, no
+  si se abre ya finalizado (`wasFinishedOnOpen`).
+- Contrato: `tests/test_play_timer_exercise_list_contract.py::test_android_minimize_shows_bar_for_manual_clock`.
 
 #### Apple — `RoutineBlock` init: `emomIntervalSeconds` antes de `timeCapSeconds` (13/11/2026)
 - Tras `#272`, `timeCapSeconds`/`structure` van **al final** del init (después de

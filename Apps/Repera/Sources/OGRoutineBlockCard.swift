@@ -41,16 +41,23 @@ struct OGRoutineBlockCard: View {
             } else {
                 ForEach(block.movements) { move in
                     if move.isRest {
-                        HStack(spacing: 8) {
-                            Image(systemName: "pause.circle")
+                        HStack(alignment: .center, spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(OG.surface2)
+                                Image(systemName: "pause.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(OG.label3)
+                            }
+                            .frame(width: 48, height: 48)
                             Text("Descanso")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
                             Spacer(minLength: 0)
                             Text(restDetail(move))
-                                .monospacedDigit()
+                                .font(.system(size: 13, weight: .medium).monospacedDigit())
+                                .foregroundStyle(OG.label2)
                         }
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(OG.label3)
-                        .padding(.leading, 56)
                     } else {
                         linkedExerciseRow(resolvedWODExercise(move), detail: moveDetail(move))
                     }

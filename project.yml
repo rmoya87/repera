@@ -78,6 +78,7 @@ targets:
       - path: Apps/Repera/Sources/PlusHubView.swift
       - path: Apps/Repera/Sources/SessionDetailSkeleton.swift
       - path: Apps/Repera/Sources/ProgressHubSkeleton.swift
+      - path: Apps/Repera/Sources/LaunchFaceSplashView.swift
       # GA4 adapter: new Analytics/ folder is easy for XcodeGen 2.46 to drop from Compile Sources.
       - path: Apps/Repera/Sources/StrengthBenchmarkCard.swift
       - path: Apps/Repera/Sources/StrengthContributionSubmitter.swift
@@ -99,7 +100,7 @@ targets:
         buildPhase: resources
         type: folder
       # El sistema renderiza el LaunchScreen nativo mientras SwiftUI inicia.
-      # El storyboard nativo y el primer frame SwiftUI usan ReperaNativeOpaqueHero.
+      # Storyboard: ReperaNativeOpaqueHero (cara). SwiftUI: MascotFace animada.
       - path: Apps/Repera/Resources/LaunchScreen.storyboard
         buildPhase: resources
       - path: Apps/Repera/Resources/BodyPaths.json

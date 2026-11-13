@@ -108,7 +108,7 @@ data class WODMovement(
         get() {
             if (isRest) {
                 val sec = restSeconds ?: 60
-                return if (sec >= 60) "${sec / 60}' REST" else "$sec\" REST"
+                return "$sec s"
             }
             val parts = mutableListOf<String>()
             val scheme = repScheme

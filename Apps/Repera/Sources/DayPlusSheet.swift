@@ -132,6 +132,7 @@ struct DayPlusSheet: View {
                     )
                 }
             }
+            .geometryGroup()
             .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
 
             if let caption = subscriptions.policy.boardScanUsageCaption {
@@ -169,6 +170,7 @@ struct DayPlusSheet: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+        .geometryGroup()
         .ogFittedHeight()
     }
 
@@ -201,6 +203,8 @@ struct DayPlusSheet: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .contentShape(Rectangle())
+        // Sheet reaparece tras escanear / pop: icono y textos animan juntos.
+        .geometryGroup()
     }
 
     private func requestBoardScan() {

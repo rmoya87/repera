@@ -1,5 +1,12 @@
 package dev.repera.mobile
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -32,9 +40,11 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.SnackbarHostState
@@ -71,11 +81,24 @@ internal fun ActiveWorkoutScreen(
     onRemoveExercise: () -> Unit = {},
     clockMinimized: Boolean = false,
     onExpandClock: () -> Unit = {},
+    /** Finalizar desde el dock: congela el reloj y oculta la franja (conserva Formato). */
+    onFinishMinimizedClock: () -> Unit = {},
+    /**
+     * Tras cambiar Formato en Play (p. ej. libre → Tabata): invalidar reloj
+     * stale y persistir el plan para que el temporizador use la nueva modalidad.
+     */
+    onBlockFormatChanged: () -> Unit = {},
+    /** Config del reloj de bloque libre; hace falta para la barra minimizada sin WOD. */
+    manualClockConfig: ManualBlockTimerConfig? = null,
+    /** Prescripción al abrir Tabata/EMOM/… (dock + reloj sin depender de wod). */
+    launchClockConfig: BlockClockLaunchConfig? = null,
     /** R8 M1: acciones de plan al final del scroll (paridad iOS WorkoutView). */
     importableRoutines: List<RoutineEntry> = emptyList(),
     overview: StateOverview? = null,
     /** Arranque del reloj de bloque libre tras el sheet (paridad iOS). */
     onLaunchManualClock: (ManualBlockTimerConfig) -> Unit = {},
+    /** Abre el reloj con prescripción del bloque (Tabata/EMOM/…), sin esperar flush. */
+    onLaunchBlockClock: (BlockClockLaunchConfig) -> Unit = {},
     loadGuideProvider: (String, Int, Double?) -> LoadGuide? = { _, _, _ -> null },
     onWodMeasuredScore: (Double, String) -> Unit = { _, _ -> },
     onWodPhaseOutcome: (String, Int, Int?, Int) -> Unit = { _, _, _, _ -> },
@@ -121,29 +144,131 @@ internal fun ActiveWorkoutScreen(
         onKeepTraining = { showFinishSummary = false }
     )
 
+    val context = LocalContext.current
     // Sin `completed`: marcar series no debe recrear todos los BlockDraftUi.
+    // Clave solo por sesión: un navSig strength→wod no debe pisar Formato EMOM
+    // en memoria con un draft aún vacío (flush async / busy).
     val navSig = workout.navigationEntries.joinToString("|") {
         "${it.blockId}:${it.index}:${it.name}"
     }
-    val playBlocks = remember(workout.id, navSig) {
+    fun blockFormatKey(block: BlockDraftUi): String =
+        block.blockId?.takeIf { it.isNotBlank() } ?: block.listKey
+
+    fun applyFormatSnapshot(block: BlockDraftUi, snap: PlayBlockFormatSnapshot) {
+        block.format = snap.format
+        block.work = snap.workSeconds.toString()
+        block.rest = snap.restSeconds.toString()
+        block.rounds = snap.rounds.toString()
+        block.interval = snap.intervalSeconds.toString()
+        block.timeCap = snap.timeCapMinutes.toString()
+    }
+
+    fun snapshotFromBlock(block: BlockDraftUi): PlayBlockFormatSnapshot =
+        PlayBlockFormatSnapshot(
+            format = block.format,
+            workSeconds = block.work.toIntOrNull() ?: 20,
+            restSeconds = block.rest.toIntOrNull() ?: 10,
+            rounds = block.rounds.toIntOrNull() ?: 8,
+            intervalSeconds = block.interval.toIntOrNull() ?: 60,
+            timeCapMinutes = block.timeCap.toIntOrNull() ?: 12,
+        )
+
+    fun persistFormatOverride(block: BlockDraftUi) {
+        PlayBlockFormatStore.save(
+            context, accountId, workout.id, blockFormatKey(block),
+            snapshotFromBlock(block),
+        )
+    }
+
+    val playBlocks = remember(workout.id) {
         mutableStateListOf<BlockDraftUi>().apply {
             val entry = activeEditorDraft()
             if (entry != null && entry.blocks.isNotEmpty()) {
-                entry.blocks.forEach { add(BlockDraftUi(it)) }
+                entry.blocks.forEach { info ->
+                    val draft = BlockDraftUi(info)
+                    // Preferir Formato guardado en Play (sobrevive al remount del reloj).
+                    val key = draft.blockId?.takeIf { it.isNotBlank() } ?: draft.listKey
+                    PlayBlockFormatStore.read(context, accountId, workout.id, key)
+                        ?.let { applyFormatSnapshot(draft, it) }
+                    add(draft)
+                }
             } else {
-                add(
-                    BlockDraftUi(
-                        RoutineBlockInfo(
-                            title = workout.wod?.title?.takeIf { it.isNotBlank() } ?: "Bloque",
-                            format = workout.wod?.format.orEmpty()
-                        )
+                val draft = BlockDraftUi(
+                    RoutineBlockInfo(
+                        title = workout.wod?.title?.takeIf { it.isNotBlank() } ?: "Bloque",
+                        format = workout.wod?.format.orEmpty()
                     )
                 )
+                PlayBlockFormatStore.read(context, accountId, workout.id, draft.listKey)
+                    ?.let { applyFormatSnapshot(draft, it) }
+                add(draft)
             }
         }
     }
+    // Tras apply: fusionar draft → UI sin borrar un Formato más nuevo (store/memoria).
+    LaunchedEffect(workout.id, navSig, workout.wod?.format) {
+        val entry = activeEditorDraft() ?: return@LaunchedEffect
+        if (entry.blocks.isEmpty()) return@LaunchedEffect
+        var needsFlush = false
+        entry.blocks.forEachIndexed { index, info ->
+            val existing = playBlocks.getOrNull(index)
+            if (existing == null) {
+                val draft = BlockDraftUi(info)
+                PlayBlockFormatStore.read(context, accountId, workout.id, blockFormatKey(draft))
+                    ?.let { applyFormatSnapshot(draft, it) }
+                playBlocks.add(draft)
+                return@forEachIndexed
+            }
+            val key = blockFormatKey(existing)
+            val stored = PlayBlockFormatStore.read(context, accountId, workout.id, key)
+            val draftFormat = info.format
+            val memFormat = existing.format
+            when {
+                stored != null &&
+                    (draftFormat.isBlank() || draftFormat == "strength" ||
+                        !draftFormat.equals(stored.format, ignoreCase = true)) -> {
+                    // Sesión aún sin Formato: reaplicar store (p. ej. tras Finalizar reloj).
+                    applyFormatSnapshot(existing, stored)
+                    needsFlush = true
+                }
+                memFormat.isNotBlank() && memFormat != "strength" &&
+                    (draftFormat.isBlank() || draftFormat == "strength") -> {
+                    persistFormatOverride(existing)
+                    needsFlush = true
+                }
+                draftFormat.isNotBlank() && draftFormat != "strength" &&
+                    draftFormat != memFormat -> {
+                    existing.format = draftFormat
+                    if (info.timeCapMinutes > 0) existing.timeCap = info.timeCapMinutes.toString()
+                    if (info.rounds > 0) existing.rounds = info.rounds.toString()
+                    if (info.workSeconds > 0) existing.work = info.workSeconds.toString()
+                    if (info.restSeconds >= 0 && draftFormat.equals("tabata", ignoreCase = true)) {
+                        existing.rest = info.restSeconds.toString()
+                    }
+                    if (info.emomIntervalSeconds > 0) {
+                        existing.interval = info.emomIntervalSeconds.toString()
+                    }
+                }
+            }
+        }
+        while (playBlocks.size > entry.blocks.size) {
+            playBlocks.removeAt(playBlocks.lastIndex)
+        }
+        // Una sola re-aplicación por montaje / cambio de plan vacío.
+        if (needsFlush) {
+            playBlocks.forEach { it.ensurePlayDraftable() }
+            val drafts = playBlocks.mapNotNull { it.toDraft() }
+            val editor = activeEditorDraft()
+            if (editor != null && drafts.size == playBlocks.size) {
+                onApplyActivePlan(workout.id, editor.id, drafts) { }
+            }
+        }
+    }
+    /** Evita flush en onDispose al navegar a reloj (carrera con busy / Formato). */
+    var suppressDisposeFlush by remember(workout.id) { mutableStateOf(false) }
     fun flushPlayPlan() {
         val entry = activeEditorDraft() ?: return
+        playBlocks.forEach { it.ensurePlayDraftable() }
         val drafts = mutableListOf<RoutineBlockDraft>()
         for (block in playBlocks) {
             drafts.add(block.toDraft() ?: return)
@@ -163,7 +288,9 @@ internal fun ActiveWorkoutScreen(
         flushPlayPlan()
     }
     DisposableEffect(workout.id) {
-        onDispose { flushPlayPlan() }
+        onDispose {
+            if (!suppressDisposeFlush) flushPlayPlan()
+        }
     }
     val indexesByBlockId = remember(workout.navigationEntries) {
         linkedMapOf<String, List<Int>>().also { map ->
@@ -195,6 +322,7 @@ internal fun ActiveWorkoutScreen(
                 blockWorkOverride = work
                 blockRestOverride = rest
                 showBlockTimer = false
+                suppressDisposeFlush = true
                 onLaunchManualClock(
                     ManualBlockTimerConfig(
                         workSeconds = work,
@@ -205,21 +333,72 @@ internal fun ActiveWorkoutScreen(
             }
         )
     }
-    /** iOS requestBlockClockStart: formatos con time cap / intervalo van al reloj; solo bloque libre abre el sheet. */
-    fun openBlockClockOrConfig() {
-        val wod = workout.wod
-        val freeFormat = wod == null ||
-            wod.format.isBlank() ||
-            wod.format.equals("strength", ignoreCase = true)
-        val hasPrescribed = (wod?.timeCapMinutes ?: 0) > 0 ||
-            (wod?.intervalSeconds ?: 0) > 0 ||
-            (wod?.workSeconds ?: 0) > 0
-        if (!freeFormat || hasPrescribed) {
-            onTimerAction("start")
-            onOpenClock()
-        } else {
-            showBlockTimer = true
+    /**
+     * iOS `requestBlockClockStart`: Tabata/EMOM/AMRAP/… van al reloj con la
+     * prescripción del bloque. Solo fuerza/libre sin duración pide el sheet.
+     * Abre al instante con [BlockClockLaunchConfig] (no espera flush/`busy`).
+     */
+    fun openBlockClockOrConfig(blockUi: BlockDraftUi) {
+        val format = blockUi.format.takeIf { it.isNotBlank() }
+            ?: workout.wod?.format.orEmpty()
+        val freeFormat = format.isBlank() || format.equals("strength", ignoreCase = true)
+        // Tabata/EMOM/…: siempre seed + launch del draft (nunca sheet libre).
+        if (!freeFormat) {
+            when (format.lowercase()) {
+                "tabata" -> {
+                    if (blockUi.work.toIntOrNull() == null ||
+                        (blockUi.work.toIntOrNull() ?: 0) <= 0
+                    ) blockUi.work = "20"
+                    if (blockUi.rest.toIntOrNull() == null) blockUi.rest = "10"
+                    if (blockUi.rounds.toIntOrNull() == null ||
+                        (blockUi.rounds.toIntOrNull() ?: 0) <= 0
+                    ) blockUi.rounds = "8"
+                }
+                "emom", "amrap" -> {
+                    if (blockUi.timeCap.isBlank()) blockUi.timeCap = "12"
+                }
+                "forTime" -> {
+                    if (blockUi.rounds.toIntOrNull() == null ||
+                        blockUi.rounds.toIntOrNull() == 1
+                    ) blockUi.rounds = "4"
+                    if (blockUi.timeCap.isBlank()) blockUi.timeCap = "12"
+                }
+            }
+            val stations = blockUi.entries.count {
+                val rest = it.sourceJson?.let { raw ->
+                    runCatching { org.json.JSONObject(raw).optBoolean("isRest") }.getOrDefault(false)
+                } == true
+                !rest && it.exerciseId.isNotBlank()
+            }.coerceAtLeast(1)
+            val launch = BlockClockLaunchConfig.fromBlockDraft(blockUi, stations = stations)
+            suppressDisposeFlush = true
+            blockUi.ensurePlayDraftable()
+            persistFormatOverride(blockUi)
+            onLaunchBlockClock(launch)
+            flushPlayPlan()
+            return
         }
+        val interval = workout.wod?.intervalSeconds ?: 0
+        val hasExplicitInterval = interval > 0 &&
+            (interval != 60 || format.equals("strength", ignoreCase = true))
+        val hasPrescribedDuration =
+            (workout.wod?.timeCapMinutes ?: 0) > 0 ||
+                hasExplicitInterval ||
+                (workout.wod?.workSeconds ?: 0) > 0
+        if (!hasPrescribedDuration) {
+            showBlockTimer = true
+            return
+        }
+        val stations = blockUi.entries.count {
+            val rest = it.sourceJson?.let { raw ->
+                runCatching { org.json.JSONObject(raw).optBoolean("isRest") }.getOrDefault(false)
+            } == true
+            !rest && it.exerciseId.isNotBlank()
+        }.coerceAtLeast(1)
+        val launch = BlockClockLaunchConfig.fromBlockDraft(blockUi, stations = stations)
+        suppressDisposeFlush = true
+        onLaunchBlockClock(launch)
+        flushPlayPlan()
     }
     if (showPlayReorder) {
         val blocks = playReorderBlocks
@@ -328,18 +507,6 @@ internal fun ActiveWorkoutScreen(
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
-        if (clockMinimized && timer != null) {
-            item {
-                MinimizedWodClockBar(
-                    active = workout,
-                    timer = timer,
-                    busy = busy,
-                    onExpand = onExpandClock,
-                    onTimerAction = onTimerAction,
-                    onTimerTick = onTimerTick
-                )
-            }
-        }
         // Cabecera de bloque + entradas Lazy + logging del actual (fuera del card).
         playBlocks.forEachIndexed { bi, block ->
             val blockKey = block.blockId?.takeIf { it.isNotBlank() }
@@ -381,12 +548,18 @@ internal fun ActiveWorkoutScreen(
                         onSelectEntryIndex = { ei ->
                             blockIndexes.getOrNull(ei)?.let { onSelectExercise(it) }
                         },
+                        onFormatChanged = {
+                            // Libre → EMOM/Tabata/…: store local + flush encolado + invalidar reloj.
+                            block.ensurePlayDraftable()
+                            persistFormatOverride(block)
+                            flushPlayPlan()
+                            onBlockFormatChanged()
+                        },
                         onTimer = {
+                            openBlockClockOrConfig(block)
                             blockIndexes.firstOrNull()?.let { ix ->
                                 if (ix != workout.index) onSelectExercise(ix)
                             }
-                            flushPlayPlan()
-                            openBlockClockOrConfig()
                         },
                         trailingContent = if (isCurrent) {
                             {
@@ -490,9 +663,58 @@ internal fun ActiveWorkoutScreen(
         }
     }
     }
+        val showMinimizedClock = clockMinimized && timer != null &&
+            (workout.wod != null || manualClockConfig != null || launchClockConfig != null)
+        val reduceMotion = remember(context) { reperaReduceMotion(context) }
+        val dockEase = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+        val dockFade = tween<Float>(
+            durationMillis = if (reduceMotion) 100 else 200,
+            easing = dockEase
+        )
+        val dockSlide = tween<IntOffset>(
+            durationMillis = if (reduceMotion) 1 else 220,
+            easing = dockEase
+        )
+        AnimatedVisibility(
+            visible = showMinimizedClock,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(
+                    start = 12.dp,
+                    end = 12.dp,
+                    bottom = LocalReperaTabBarInset.current + 12.dp
+                ),
+            enter = fadeIn(dockFade) + slideInVertically(
+                animationSpec = dockSlide,
+                initialOffsetY = { full -> if (reduceMotion) 0 else full / 2 }
+            ),
+            exit = fadeOut(dockFade) + slideOutVertically(
+                animationSpec = dockSlide,
+                targetOffsetY = { full -> if (reduceMotion) 0 else full / 2 }
+            )
+        ) {
+            MinimizedWodClockBar(
+                active = workout,
+                timer = timer,
+                busy = busy,
+                onExpand = {
+                    suppressDisposeFlush = true
+                    onExpandClock()
+                },
+                onTimerAction = onTimerAction,
+                onTimerTick = onTimerTick,
+                onFinish = onFinishMinimizedClock,
+                manualConfig = manualClockConfig,
+                launchConfig = launchClockConfig,
+            )
+        }
         WorkoutUndoSnackbarHost(
             snackbarHostState,
-            Modifier.align(Alignment.BottomCenter).padding(16.dp)
+            Modifier.align(Alignment.BottomCenter).padding(
+                start = 16.dp,
+                end = 16.dp,
+                bottom = if (showMinimizedClock) LocalReperaTabBarInset.current + 88.dp else 16.dp
+            )
         )
         if (confirmCancelWorkout) {
             ReperaConfirmSheet(
@@ -530,8 +752,6 @@ private fun PlaySessionPlanFooter(
     /** Si false, las acciones de sesión viven solo en el menú ⋮ (paridad iOS). */
     showSessionPlanActions: Boolean = true,
 ) {
-    var showExercisePicker by remember { mutableStateOf(false) }
-    var showFreeMove by remember { mutableStateOf(false) }
     val favorites = importableRoutines.filter {
         it.isFavorite && it.scheduledDate == null && it.blocks.isNotEmpty()
     }
@@ -541,13 +761,8 @@ private fun PlaySessionPlanFooter(
         onFlushPlan()
     }
 
-    fun ensureTarget(blocks: SnapshotStateList<BlockDraftUi>): BlockDraftUi {
-        if (blocks.isEmpty()) {
-            blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque 1", format = "")))
-        }
-        return blocks.last()
-    }
-
+    // Ejercicio / Descanso / Movimiento libre solo dentro de cada BlockEditorCard
+    // (paridad iOS). Aquí: sheets del menú ⋮ y, opcional, filas de plan.
     if (showBoardScanner) {
         ReperaModalBottomSheet(onDismissRequest = { onShowBoardScannerChange(false) }) {
             BoardScanScreen(
@@ -567,61 +782,47 @@ private fun PlaySessionPlanFooter(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        WorkoutWODInsertActions(
-            onExercise = { showExercisePicker = true },
-            onRest = {
-                mutateBlocks { blocks ->
-                    val rest = EditorBlockOps.restMovement()
-                    ensureTarget(blocks).entries.add(
-                        EntryUi("", "REST", 1, 1, null, null, rest.getString("id"), rest.toString())
-                    )
-                }
-            },
-            onFreeMovement = { showFreeMove = true }
-        )
-        if (showSessionPlanActions) {
-            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    PlanEditorActionRow(
-                        icon = Icons.Outlined.ViewAgenda,
-                        label = "Añadir bloque",
-                        modifier = Modifier.testTag("play_add_block_row"),
-                        onClick = {
-                            mutateBlocks { blocks ->
-                                val n = blocks.size + 1
-                                blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "")))
-                            }
-                        },
-                        enabled = !busy
-                    )
+    if (showSessionPlanActions) {
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                PlanEditorActionRow(
+                    icon = Icons.Outlined.ViewAgenda,
+                    label = "Añadir bloque",
+                    modifier = Modifier.testTag("play_add_block_row"),
+                    onClick = {
+                        mutateBlocks { blocks ->
+                            val n = blocks.size + 1
+                            blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "")))
+                        }
+                    },
+                    enabled = !busy
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                PlanEditorActionRow(
+                    icon = Icons.AutoMirrored.Outlined.List,
+                    label = "Elegir WOD",
+                    modifier = Modifier.testTag("play_pick_wod"),
+                    onClick = { onShowWodsChange(true) },
+                    enabled = !busy
+                )
+                if (favorites.isNotEmpty()) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     PlanEditorActionRow(
-                        icon = Icons.AutoMirrored.Outlined.List,
-                        label = "Elegir WOD",
-                        modifier = Modifier.testTag("play_pick_wod"),
-                        onClick = { onShowWodsChange(true) },
-                        enabled = !busy
-                    )
-                    if (favorites.isNotEmpty()) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                        PlanEditorActionRow(
-                            icon = Icons.Outlined.Star,
-                            label = "Añadir favorito",
-                            modifier = Modifier.testTag("play_add_favorite"),
-                            onClick = { onShowFavoritesChange(true) },
-                            enabled = !busy
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    PlanEditorActionRow(
-                        icon = Icons.Outlined.AddCircle,
-                        label = "Escanear pizarra",
-                        modifier = Modifier.testTag("play_scan_board"),
-                        onClick = { onShowBoardScannerChange(true) },
+                        icon = Icons.Outlined.Star,
+                        label = "Añadir favorito",
+                        modifier = Modifier.testTag("play_add_favorite"),
+                        onClick = { onShowFavoritesChange(true) },
                         enabled = !busy
                     )
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                PlanEditorActionRow(
+                    icon = Icons.Outlined.AddCircle,
+                    label = "Escanear pizarra",
+                    modifier = Modifier.testTag("play_scan_board"),
+                    onClick = { onShowBoardScannerChange(true) },
+                    enabled = !busy
+                )
             }
         }
     }
@@ -648,33 +849,6 @@ private fun PlaySessionPlanFooter(
                 onShowWodsChange(false)
             },
             onDismiss = { onShowWodsChange(false) }
-        )
-    }
-    if (showFreeMove) {
-        FreeMovementDialog(
-            onDismiss = { showFreeMove = false },
-            onCreate = { name, reps, male, female ->
-                val move = EditorBlockOps.freeMovement(name, reps, male, female)
-                mutateBlocks { blocks ->
-                    ensureTarget(blocks).entries.add(
-                        EntryUi("", name, reps, 1, male, null, move.getString("id"), move.toString())
-                    )
-                }
-                showFreeMove = false
-            }
-        )
-    }
-    if (showExercisePicker) {
-        ExercisePickerSheet(
-            exercises = catalog,
-            excluded = emptySet(),
-            onPick = { ex ->
-                mutateBlocks { blocks ->
-                    ensureTarget(blocks).entries.add(EntryUi(ex.id, ex.name, 8, 3, null))
-                }
-                showExercisePicker = false
-            },
-            onDismiss = { showExercisePicker = false }
         )
     }
 }

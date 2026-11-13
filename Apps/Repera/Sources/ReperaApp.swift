@@ -37,8 +37,8 @@ struct ReperaApp: App {
     @State private var locationTracker = WorkoutLocationTracker.shared
     @State private var wasBackgrounded = false
     @State private var authReady = false
-    /// Two visible startup poses. The native frame uses the same barbell asset.
-    @State private var launchMascotStage = 0
+    /// Evita cerrar el splash antes de que se vea el idle (LaunchScreen nativo es estático).
+    @State private var splashHoldComplete = false
     @Environment(\.scenePhase) private var scenePhase
 
     /// UI smoke tests run on clean simulators without an Apple ID. Only Debug
@@ -159,22 +159,18 @@ struct ReperaApp: App {
                     // Escuchar Transaction.updates desde el primer frame, antes
                     // de hidratar, iniciar sesión o mostrar cualquier paywall.
                     subscriptions.startTransactionUpdatesObservation()
-                    if uiTestTabShell {
-                        // UI tests must not wait for ornamental startup frames.
-                        launchMascotStage = 2
-                    } else {
-                        // Keep the weightlifting mascot visible when the real UI is first drawn,
-                        // even if the system's launch snapshot is stale. Then show the runner.
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(550))
-                            guard !Task.isCancelled else { return }
-                            launchMascotStage = 1
-                            try? await Task.sleep(for: .milliseconds(330))
-                            guard !Task.isCancelled else { return }
-                            launchMascotStage = 2
-                        }
-                    }
+                    // Cara animada hasta authReady + hold mínimo (el storyboard nativo no anima).
+                    // UI tests omiten el splash vía uiTestTabShell en launchRootView.
                     LaunchTiming.mark("RootTabView.task")
+                    if !uiTestTabShell {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(1600))
+                            guard !Task.isCancelled else { return }
+                            splashHoldComplete = true
+                        }
+                    } else {
+                        splashHoldComplete = true
+                    }
                     // Paint first, then hydrate. Do not await seed/enrich before Home is visible.
                     Task(priority: .utility) {
                         ExerciseArt.warmArtManifest()
@@ -468,15 +464,11 @@ struct ReperaApp: App {
     /// All environment, overlay and lifecycle modifiers stay inside the window.
     @ViewBuilder
     private var launchRootView: some View {
-        // Stable parent preserves the hydration .task when the intro switches
-        // from the barbell to the runner and then into the authenticated UI.
+        // Stable parent preserves the hydration .task while the face splash
+        // stays up, then swaps into the authenticated UI or login.
         ZStack {
-            if !uiTestTabShell && launchMascotStage == 0 {
-                LaunchBarbellSplashView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea()
-            } else if !authReady || (!uiTestTabShell && launchMascotStage == 1) {
-                LaunchSplashView()
+            if !uiTestTabShell && (!authReady || !splashHoldComplete) {
+                LaunchFaceSplashView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .ignoresSafeArea()
             } else if uiTestTabShell || canEnterMainApp {
@@ -577,32 +569,6 @@ struct ReperaApp: App {
 }
 
 
-/// The second-stage runner shown while the session is being restored.
-private struct LaunchSplashView: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let canvas = UIView()
-        canvas.backgroundColor = UIColor(red: 48 / 255, green: 209 / 255, blue: 88 / 255, alpha: 1)
-        canvas.isUserInteractionEnabled = false
-
-        let mascot = UIImageView(image: UIImage(named: "MascotRunning"))
-        mascot.contentMode = .scaleAspectFit
-        mascot.clipsToBounds = true
-        mascot.translatesAutoresizingMaskIntoConstraints = false
-        canvas.addSubview(mascot)
-
-        NSLayoutConstraint.activate([
-            mascot.centerXAnchor.constraint(equalTo: canvas.centerXAnchor),
-            mascot.centerYAnchor.constraint(equalTo: canvas.centerYAnchor),
-            mascot.widthAnchor.constraint(equalTo: canvas.widthAnchor, multiplier: 0.64),
-            mascot.heightAnchor.constraint(equalTo: canvas.heightAnchor, multiplier: 0.52)
-        ])
-        return canvas
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {}
-}
-
-
 /// Restores the HealthKit retry path previously available only through the
 /// manual sync button. Runs silently, only with existing write permission.
 @MainActor
@@ -664,31 +630,3 @@ private enum CatalogBackgroundRefreshScheduler {
     }
 }
 
-/// First visible SwiftUI frame. A copy of the barbell PNG is packaged as a
-/// direct bundle resource in addition to the iOS native launch image set.
-/// This avoids a blank/black first frame even when iOS has cached a launch snapshot.
-private struct LaunchBarbellSplashView: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let canvas = UIView()
-        canvas.backgroundColor = UIColor(red: 48 / 255, green: 209 / 255, blue: 88 / 255, alpha: 1)
-        canvas.isUserInteractionEnabled = false
-
-        // Use exactly the same full-screen artwork and content mode as
-        // LaunchScreen.storyboard: avoids mascot size/position jumps between
-        // the native launch screen and the first SwiftUI frame.
-        let mascot = UIImageView(image: UIImage(named: "ReperaNativeOpaqueHero"))
-        mascot.contentMode = .scaleAspectFit
-        mascot.clipsToBounds = true
-        mascot.translatesAutoresizingMaskIntoConstraints = false
-        canvas.addSubview(mascot)
-        NSLayoutConstraint.activate([
-            mascot.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
-            mascot.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
-            mascot.topAnchor.constraint(equalTo: canvas.topAnchor),
-            mascot.bottomAnchor.constraint(equalTo: canvas.bottomAnchor)
-        ])
-        return canvas
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {}
-}

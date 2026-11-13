@@ -256,18 +256,13 @@ fun DiscardChangesDialog(
     onDiscard: () -> Unit,
 ) {
     if (!visible) return
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("¿Descartar cambios?") },
-        text = { Text("Perderás los cambios que no hayas guardado.") },
-        confirmButton = {
-            TextButton(onClick = onDiscard) {
-                Text("Descartar cambios", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Seguir editando") }
-        }
+    ReperaConfirmSheet(
+        title = "¿Descartar cambios?",
+        message = "Perderás los cambios que no hayas guardado.",
+        confirmTitle = "Descartar cambios",
+        onConfirm = onDiscard,
+        onCancel = onDismiss,
+        confirmDestructive = true
     )
 }
 
@@ -279,18 +274,13 @@ fun ConfirmDeleteMultiExerciseBlockDialog(
     onConfirm: () -> Unit,
 ) {
     if (!visible) return
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("¿Eliminar este bloque?") },
-        text = { Text("Se eliminarán todos los ejercicios del bloque.") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Eliminar bloque", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
-        }
+    ReperaConfirmSheet(
+        title = "¿Eliminar este bloque?",
+        message = "Se eliminarán todos los ejercicios del bloque.",
+        confirmTitle = "Eliminar bloque",
+        onConfirm = onConfirm,
+        onCancel = onDismiss,
+        confirmDestructive = true
     )
 }
 

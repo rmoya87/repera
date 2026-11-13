@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,8 +28,9 @@ import dev.repera.domain.WodFormat
 import kotlinx.coroutines.delay
 
 /**
- * I-42 barra flotante tras Minimizar: Ronda · mm:ss, tap → fullscreen,
- * Terminar / Continuar.
+ * Dock inferior tras Minimizar (paridad iOS minimizedTimerDock):
+ * tap en tiempo → fullscreen; Continuar/Pausar + Finalizar.
+ * WOD y bloque libre (`manualConfig`).
  */
 @Composable
 internal fun MinimizedWodClockBar(
@@ -37,26 +40,36 @@ internal fun MinimizedWodClockBar(
     onExpand: () -> Unit,
     onTimerAction: (String) -> Unit,
     onTimerTick: () -> Unit,
-    modifier: Modifier = Modifier
+    onFinish: () -> Unit,
+    modifier: Modifier = Modifier,
+    manualConfig: ManualBlockTimerConfig? = null,
+    launchConfig: BlockClockLaunchConfig? = null,
 ) {
-    val wod = active.wod ?: return
+    val wod = active.wod
+    val launch = launchConfig ?: manualConfig?.let { BlockClockLaunchConfig.fromManual(it) }
+    val spec = when {
+        launch != null -> launch.toSpec()
+        wod != null -> WodClockSpec(
+            format = WodFormat.fromWire(wod.format),
+            blockTimeCapMinutes = wod.timeCapMinutes,
+            blockTimeCapSeconds = wod.timeCapSeconds,
+            repeatedWorkSeconds = wod.repeatedWorkSeconds,
+            repeatedRestSeconds = wod.repeatedRestSeconds,
+            repeatCount = wod.repeatCount,
+            intervalSeconds = wod.intervalSeconds,
+            rounds = wod.rounds,
+            workSeconds = wod.workSeconds,
+            restSeconds = wod.restSeconds,
+            restBetweenRoundsSeconds = wod.restBetweenRoundsSeconds,
+            stations = wod.movements.count { !it.isRest }.coerceAtLeast(1)
+        )
+        else -> return
+    }
     val elapsedClock = timer?.elapsedSeconds ?: 0
-    val spec = WodClockSpec(
-        format = WodFormat.fromWire(wod.format),
-        blockTimeCapMinutes = wod.timeCapMinutes,
-        blockTimeCapSeconds = wod.timeCapSeconds,
-        repeatedWorkSeconds = wod.repeatedWorkSeconds,
-        repeatedRestSeconds = wod.repeatedRestSeconds,
-        repeatCount = wod.repeatCount,
-        intervalSeconds = wod.intervalSeconds,
-        rounds = wod.rounds,
-        workSeconds = wod.workSeconds,
-        restSeconds = wod.restSeconds,
-        restBetweenRoundsSeconds = wod.restBetweenRoundsSeconds,
-        stations = wod.movements.count { !it.isRest }.coerceAtLeast(1)
-    )
     val face = WodClock.face(spec, elapsedClock)
-    val format = WodFormat.fromWire(wod.format)
+    val format = launch?.let { WodFormat.fromWire(it.formatWire) }
+        ?: wod?.let { WodFormat.fromWire(it.format) }
+        ?: WodFormat.TABATA
     val intervalFormats = setOf(
         WodFormat.EMOM, WodFormat.DEATH_BY, WodFormat.TABATA, WodFormat.CIRCUIT
     )
@@ -73,18 +86,28 @@ internal fun MinimizedWodClockBar(
     val mm = face.primarySeconds / 60
     val ss = face.primarySeconds % 60
     val timeLabel = "%d:%02d".format(java.util.Locale.ROOT, mm, ss)
-    val roundLabel = roundNumber?.let { "Ronda $it" } ?: (face.label ?: wod.title)
+    val roundLabel = roundNumber?.let { "Ronda $it" }
+        ?: (face.label ?: wod?.title ?: "Temporizador")
+    val running = timer?.running == true
     Row(
         modifier
             .fillMaxWidth()
-            .background(Color.Black, RoundedCornerShape(14.dp))
-            .clickable(onClick = onExpand)
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .background(Color.Black, RoundedCornerShape(18.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp)
             .testTag("minimized_wod_clock_bar"),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Column(Modifier.weight(1f)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onExpand
+                )
+                .testTag("minimized_wod_expand")
+        ) {
             Text(
                 roundLabel,
                 color = brandGreen,
@@ -99,20 +122,32 @@ internal fun MinimizedWodClockBar(
             )
         }
         TextButton(
-            onClick = { onTimerAction(if (timer?.running == true) "pause" else "start") },
+            onClick = {
+                when {
+                    running -> onTimerAction("pause")
+                    face.finishedIntervals -> {
+                        // Cap ya alcanzado: reiniciar para poder Continuar de verdad.
+                        onTimerAction("reset")
+                        onTimerAction("start")
+                    }
+                    else -> onTimerAction("start")
+                }
+            },
             enabled = !busy,
             modifier = Modifier.testTag("minimized_wod_continue")
         ) {
             Text(
-                if (timer?.running == true) "Pausar" else "Continuar",
-                color = Color.White
+                if (running) "Pausar" else "Continuar",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold
             )
         }
         TextButton(
-            onClick = onExpand,
-            enabled = !busy
+            onClick = onFinish,
+            enabled = !busy,
+            modifier = Modifier.testTag("minimized_wod_finish")
         ) {
-            Text("Abrir", color = brandGreen, fontWeight = FontWeight.Bold)
+            Text("Finalizar", color = brandGreen, fontWeight = FontWeight.Bold)
         }
     }
 }

@@ -1598,12 +1598,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     }
                 },
                 activeEditorDraft = {runCatching {profile?.uniqueId?.let { WorkoutRepository(this@MainActivity,it).activeRoutineForEditing() }}.getOrNull()},
-                onUpdateActivePlan = {sessionId,id,blocks,done ->runWorkoutAction(onSuccess=done) {
-                    updateActiveSessionPlan(id,blocks,expectedSessionId=sessionId,
-                        canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) {before ->
-                        subscriptions.policy.copy(customExerciseCount=before).canCreateCustomExercise(true).allowed
-                    }
-                }},
+                onUpdateActivePlan = { sessionId, id, blocks, done ->
+                    // Formato Tabata/… no puede perderse si busy (cola; última gana).
+                    enqueueActivePlanUpdate(sessionId, id, blocks, done)
+                },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = {
                     StrengthRestService.cancel(this)
@@ -2505,6 +2503,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         busy = true
         restoringSession = true
         lifecycleScope.launch {
+            val splashShownAt = android.os.SystemClock.elapsedRealtime()
+            suspend fun holdSplashAtLeast(minMs: Long = 1_600L) {
+                val elapsed = android.os.SystemClock.elapsedRealtime() - splashShownAt
+                if (elapsed < minMs) kotlinx.coroutines.delay(minMs - elapsed)
+            }
             var restoreRevision=centerGate.revision
             fun current()=identityCurrent() && centerGate.revision==restoreRevision
             try {
@@ -2551,6 +2554,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     status = "Catálogo local: " +
                         (localReady.exceptionOrNull()?.localizedMessage ?: "no disponible")
                 }
+                holdSplashAtLeast()
                 restoringSession = false
                 busy = false
                 if (current()) prepareAccountDataAfterAuth(stored.uniqueId) { current() }
@@ -2562,6 +2566,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     // e historial local incluso si también falla la hidratación offline.
                     profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                     status = "Sin conexión con la cuenta. Los entrenos continúan guardados localmente."
+                    holdSplashAtLeast()
                     restoringSession = false
                     busy = false
                     try {
@@ -2589,6 +2594,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 profile = null
             } finally {
                 busy = false
+                // Hold solo en rutas felices/errores recuperables arriba; aquí
+                // no bloquear logout irrevocable ni cancelaciones.
                 restoringSession = false
             }
         }
@@ -3431,7 +3438,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun changeWodTimer(action: String) {
         val user = profile?.uniqueId ?: return
         val active = activeWorkout ?: return
-        if (busy) return
+        // Prefs locales: no bloquear por busy de flush/apply (si no, Tabata
+        // abre sin start y el auto-dismiss / pop deja la pantalla en blanco).
         runCatching {
             val store = WodTimerStore(this, user)
             val blockId = active.navigationEntries.firstOrNull { it.index == active.index }?.blockId
@@ -3487,6 +3495,49 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private val pendingLiveRef = java.util.concurrent.atomic.AtomicReference<PendingLive?>(null)
     private val liveRowsLock = kotlinx.coroutines.sync.Mutex()
 
+    /**
+     * Play plan flush (Formato Tabata/…): si [runWorkoutAction] está busy,
+     * encolar en vez de no-op. La última actualización gana.
+     */
+    private class PendingPlanUpdate(
+        val sessionId: String,
+        val draftId: String,
+        val blocks: List<RoutineBlockDraft>,
+        val onDone: () -> Unit,
+    )
+    private val pendingPlanUpdateRef =
+        java.util.concurrent.atomic.AtomicReference<PendingPlanUpdate?>(null)
+
+    private fun enqueueActivePlanUpdate(
+        sessionId: String,
+        draftId: String,
+        blocks: List<RoutineBlockDraft>,
+        onDone: () -> Unit,
+    ) {
+        pendingPlanUpdateRef.set(PendingPlanUpdate(sessionId, draftId, blocks, onDone))
+        drainPendingPlanUpdateIfIdle()
+    }
+
+    private fun drainPendingPlanUpdateIfIdle() {
+        if (busy) return
+        val pending = pendingPlanUpdateRef.getAndSet(null) ?: return
+        // Tras liberar busy, runWorkoutAction vuelve a drenar la cola.
+        runWorkoutAction(onSuccess = pending.onDone) {
+            updateActiveSessionPlan(
+                pending.draftId,
+                pending.blocks,
+                expectedSessionId = pending.sessionId,
+                canCreateTemplate = { count ->
+                    subscriptions.policy.copy(libraryRoutineCount = count)
+                        .canCreateLibraryRoutine(true).allowed
+                },
+            ) { before ->
+                subscriptions.policy.copy(customExerciseCount = before)
+                    .canCreateCustomExercise(true).allowed
+            }
+        }
+    }
+
     /** Editable Play rows (Apple persistActiveLiveDraft). The newest rows are held in memory immediately, so no edit can be
      *  lost; they are saved ~600 ms later, or earlier by any other workout action (runWorkoutAction takes them first).
      *  Does not take the `busy` lock, so typing keeps focus. */
@@ -3532,6 +3583,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             durable.identityRevision()==identityRevision
         busy = true
         lifecycleScope.launch {
+            var succeeded = false
             try {
                 withContext(Dispatchers.IO) {
                     check(current()) {"La cuenta cambió antes de iniciar la acción"}
@@ -3548,12 +3600,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 DriveSyncWorker.syncNow(this@MainActivity)
                 if (verifiedSupabase != null) syncWorkoutMirror()
                 status = null
-                onSuccess?.invoke()
+                succeeded = true
             } catch (error: Exception) {
                 if(current()) status = error.localizedMessage ?: "No se pudo guardar el entrenamiento"
             } finally {
                 if(current()) busy = false
             }
+            // Tras liberar busy: el start del reloj / navegación no deben chocar
+            // con changeWodTimer(if busy) return.
+            if (succeeded && current()) onSuccess?.invoke()
+            // Formato/plan de Play encolado mientras busy (Tabata no se pierde).
+            if (current()) drainPendingPlanUpdateIfIdle()
         }
     }
 

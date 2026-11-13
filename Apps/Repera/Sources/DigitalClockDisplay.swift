@@ -152,6 +152,15 @@ private struct SevenSegmentDigit: View {
     }
 }
 
+/// Fila del listado del bloque en el reloj de Play (imagen | nombre + series/reps).
+struct BlockTimerExerciseRow: Identifiable, Equatable {
+    let id: UUID
+    let exercise: Exercise?
+    let name: String
+    let detail: String
+    var isActive: Bool
+}
+
 /// Reloj del bloque para orientación vertical u horizontal.
 /// Comparte información de Apple Music con Comenzar y el temporizador libre
 /// sin sustituir nunca la sesión Now Playing de la app que reproduce audio.
@@ -160,6 +169,8 @@ struct BlockTimerScreen: View {
     var title: String
     var subtitle: String
     var exercise: Exercise?
+    /// Play: listado del bloque. Vacío = temporizador libre (solo reloj).
+    var exerciseRows: [BlockTimerExerciseRow] = []
     var roundNumber: Int?
     var totalRounds: Int?
     var displaySeconds: Int
@@ -176,17 +187,19 @@ struct BlockTimerScreen: View {
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     private var isLandscape: Bool { verticalSizeClass == .compact }
+    private var showsExerciseList: Bool { !exerciseRows.isEmpty }
+    private var showsLegacyExercise: Bool { !showsExerciseList && exercise != nil }
 
     var body: some View {
         GeometryReader { geometry in
             let landscape = isLandscape || geometry.size.width > geometry.size.height
-            let sideWidth: CGFloat = landscape && exercise != nil
-                ? min(260, geometry.size.width * 0.31)
+            let sideWidth: CGFloat = landscape && (showsExerciseList || showsLegacyExercise)
+                ? min(showsExerciseList ? 300 : 260, geometry.size.width * (showsExerciseList ? 0.38 : 0.31))
                 : 0
             // Espacio ocupado por safe area interna, margen de columna, HStack
             // y márgenes del cronómetro. En vertical se reserva aire al glow.
             let horizontalInset: CGFloat = landscape
-                ? (exercise == nil ? 40 : 94)
+                ? (sideWidth == 0 ? 40 : 94)
                 : 44
             let availableClockWidth = max(
                 1, geometry.size.width - sideWidth - horizontalInset
@@ -195,9 +208,9 @@ struct BlockTimerScreen: View {
             // Sin un mínimo artificial de 55 pt: con ronda + MM:SS causaba
             // clipping en iPhone estrecho. Cada cifra usa su ancho real.
             let digitHeight = min(
-                landscape ? 165 : 138,
+                landscape ? 165 : (showsExerciseList ? 110 : 138),
                 availableClockWidth / widthFactor,
-                geometry.size.height * (landscape ? 0.36 : 0.235)
+                geometry.size.height * (landscape ? 0.36 : (showsExerciseList ? 0.18 : 0.235))
             )
 
             ZStack {
@@ -234,11 +247,59 @@ struct BlockTimerScreen: View {
         .padding(.top, 8)
     }
 
+    /// Listado Play: imagen a la izquierda, nombre y series/reps a la derecha.
+    private var exerciseList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 10) {
+                ForEach(exerciseRows) { row in
+                    HStack(alignment: .center, spacing: 12) {
+                        if let exercise = row.exercise {
+                            ExerciseThumb(exercise: exercise, size: 52)
+                        } else {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.white.opacity(0.12))
+                                .frame(width: 52, height: 52)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(row.name)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                            if !row.detail.isEmpty {
+                                Text(row.detail)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(row.isActive ? OG.accent : Color.white.opacity(0.55))
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(row.isActive ? OG.accent.opacity(0.18) : Color.white.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(row.isActive ? OG.accent.opacity(0.7) : Color.clear, lineWidth: 1)
+                    )
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(row.isActive ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
     /// El ejercicio acompaña al reloj sin pegarse a los dígitos.
     /// En ambas orientaciones el contenido queda centrado en su espacio.
     private func exerciseDetails(landscape: Bool) -> some View {
         Group {
-            if let exercise {
+            if showsExerciseList {
+                exerciseList
+            } else if let exercise {
                 VStack(alignment: .center, spacing: landscape ? 15 : 12) {
                     ExerciseThumb(exercise: exercise, size: landscape ? 112 : 100)
                     Text(exercise.name)
@@ -258,18 +319,18 @@ struct BlockTimerScreen: View {
         VStack(spacing: 0) {
             topBar
             Spacer(minLength: 8)
-            VStack(spacing: 38) {
+            VStack(spacing: showsExerciseList ? 16 : 38) {
                 clockBlock(digitHeight: digitHeight)
-                // Más aire y centrado real para nombre y miniatura.
-                if exercise != nil {
+                if showsExerciseList || showsLegacyExercise {
                     exerciseDetails(landscape: false)
+                        .frame(maxHeight: showsExerciseList ? .infinity : nil)
                 }
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 12)
-            Spacer(minLength: 16)
             controls(horizontal: false)
                 .padding(.horizontal, 24)
+                .padding(.top, 12)
                 .padding(.bottom, 18)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -279,9 +340,10 @@ struct BlockTimerScreen: View {
         VStack(spacing: 0) {
             topBar
             HStack(alignment: .center, spacing: 22) {
-                if exercise != nil {
+                if showsExerciseList || showsLegacyExercise {
                     exerciseDetails(landscape: true)
-                        .frame(width: min(260, availableWidth * 0.31))
+                        .frame(width: min(showsExerciseList ? 300 : 260,
+                                          availableWidth * (showsExerciseList ? 0.38 : 0.31)))
                         .frame(maxHeight: .infinity, alignment: .center)
                         .padding(.leading, 20)
                 }

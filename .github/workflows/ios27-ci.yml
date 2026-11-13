@@ -209,22 +209,23 @@ jobs:
           with open(sys.argv[1],encoding="utf-8") as f: entries=json.load(f)
           names={e.get("Name") for e in entries if isinstance(e,dict)}
           assert "ReperaNativeOpaqueHero" in names, "Native splash mascot not in compiled Assets.car"
-          print("PASS: ReperaNativeOpaqueHero present in asset catalog")
-          # Also validate that the SwiftUI barbell image is compiled separately.
-          assert "ReperaBarbellLaunch" in names, "SwiftUI barbell mascot missing"
+          assert "MascotFace" in names, "Animated splash face missing from Assets.car"
+          print("PASS: ReperaNativeOpaqueHero + MascotFace present in asset catalog")
+          # Legacy transparent launch art still ships for tooling/CI continuity.
+          assert "ReperaBarbellLaunch" in names, "Launch transparent art missing"
           PY
           test -f "$APP/ReperaStartupBarbell.png" || {
-            echo "::error::SwiftUI barbell is missing from app bundle"; exit 1;
+            echo "::error::Opaque startup PNG missing from app bundle"; exit 1;
           }
           # Xcode's Copy PNG File build step recompresses png bytes.
           # Comparing bytes is invalid; verify dimensions and a decodable image instead.
           src_dimensions="$(sips -g pixelWidth -g pixelHeight Apps/Repera/Resources/ReperaStartupBarbell.png | grep -E 'pixelWidth|pixelHeight' | tr -d '[:space:]')"
           app_dimensions="$(sips -g pixelWidth -g pixelHeight "$APP/ReperaStartupBarbell.png" | grep -E 'pixelWidth|pixelHeight' | tr -d '[:space:]')"
           test "$src_dimensions" = "$app_dimensions" || {
-            echo "::error::Bundled SwiftUI mascot has different image dimensions"; exit 1;
+            echo "::error::Bundled startup mascot has different image dimensions"; exit 1;
           }
-          echo "PASS: bundled barbell PNG decodes at expected dimensions"
-          echo "PASS: native launch and first SwiftUI frame use matching art"
+          echo "PASS: bundled startup PNG decodes at expected dimensions"
+          echo "PASS: native launch face art present"
 
       - name: Build ReperaWatch (watchOS 27 Simulator)
         shell: bash

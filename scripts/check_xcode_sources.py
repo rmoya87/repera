@@ -32,6 +32,7 @@ REQUIRED = (
     "OGDuoContextRail.swift",
     "SessionDetailSkeleton.swift",
     "ProgressHubSkeleton.swift",
+    "LaunchFaceSplashView.swift",
     "StrengthBenchmarkCard.swift",
     "StrengthContributionSubmitter.swift",
     "StrengthBenchmarkRemoteStore.swift",

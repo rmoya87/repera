@@ -110,6 +110,12 @@ internal class StandaloneTimerService : Service() {
     }
 
     private fun notifyFinished() {
+        // Con la app visible la UI ya muestra el fin; no lanzar banner.
+        val importance = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(importance)
+        if (importance.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+            return
+        }
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(

@@ -106,7 +106,7 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         self.assertNotIn("estimateSessionKcal", segment)
         app = read(IOS / "ReperaApp.swift")
         foreground = app.split("private func refreshHealthOnForeground(", 1)[1].split(
-            "private struct LaunchSplashView", 1
+            "private enum AutomaticHealthWorkoutReconciler", 1
         )[0]
         self.assertIn("await store.reconcileWatchHealthMetrics()", foreground)
 

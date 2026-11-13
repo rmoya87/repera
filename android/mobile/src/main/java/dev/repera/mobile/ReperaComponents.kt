@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
@@ -671,6 +672,31 @@ internal fun libraryExerciseSubtitle(entry: ExerciseEntry): String {
     entry.disciplineTags.mapNotNull { clean(it) }.forEach { parts += it }
     clean(entry.equipment)?.let { parts += it }
     return parts.joinToString(" · ")
+}
+
+/**
+ * Miniatura de descanso (paridad iOS `pause.fill` en surface2): misma huella
+ * 44×44 que [ExerciseListThumb] para alinear filas Play/Plan.
+ */
+@Composable
+internal fun RestListThumb(
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 44.dp,
+) {
+    Box(
+        modifier
+            .size(size)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Pause,
+            contentDescription = "Descanso",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(size * 0.38f)
+        )
+    }
 }
 
 /** Decorativa por defecto: las filas que la usan ya muestran el nombre; pasar [contentDescription] si va sola. */

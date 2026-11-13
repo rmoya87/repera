@@ -70,19 +70,48 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
 
     private var isMultiple: Bool { selectionMode == .multiple }
 
+    private var queryIsEmpty: Bool {
+        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Recientes solo con «Todos» y sin texto de búsqueda.
+    private var showsRecents: Bool {
+        isMultiple && filter == .all && queryIsEmpty && !recentRows.isEmpty
+    }
+
     var body: some View {
         List {
             if let pageTitle {
-                OGScrollablePageTitle(pageTitle).ogScrollingTitleListRow()
+                // Misma receta que Ajustes/Favoritos: sin caja insetGrouped que
+                // corta descendentes («j» de «Elegir ejercicio»).
+                Section {
+                    OGScrollablePageTitle(pageTitle)
+                        .padding(.horizontal, OG.pad)
+                        .padding(.bottom, 4)
+                        .ogScrollingTitleListRow()
+                }
+                .ogScrollingTitleSection()
             }
+            // Título antes del buscador (no `.searchable` en nav drawer).
+            // leading/trailing 0: el margen lo pone insetGrouped → mismo ancho
+            // que las cards de Recientes / Todos (antes OG.pad doblaba el inset).
+            Section {
+                pickerSearchField
+            }
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
             if isMultiple {
+                // Chips a borde a borde; el pad va en el contenido del scroll.
                 Section {
                     muscleChipScroller
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listSectionMargins(.horizontal, 0)
             }
-            if isMultiple, !recentRows.isEmpty, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if showsRecents {
                 Section("Recientes") {
                     pickerRows(recentRows)
                 }
@@ -92,8 +121,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
             } header: {
                 // No mezclar Section(String) con header:/footer: — Xcode lo
                 // interpreta como Binding y falla al compilar.
-                if isMultiple,
-                   query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if isMultiple, queryIsEmpty {
                     Text("Todos (A–Z)")
                 }
                 header()
@@ -123,7 +151,6 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
             }
         }
         .animation(nil, value: rowIDsToken)
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: prompt)
         .task(id: catalogToken) {
             await rebuildIndex()
         }
@@ -141,6 +168,22 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         }
     }
 
+    /// Misma cápsula Liquid Glass que Biblioteca (título → búsqueda).
+    private var pickerSearchField: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(OG.label2)
+            TextField(prompt, text: $query)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .foregroundStyle(OG.label)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .background(Color.clear)
+        .glassEffect(.regular, in: Capsule(style: .continuous))
+    }
+
     private var muscleChipScroller: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -156,14 +199,14 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         }
     }
 
-  private func muscleChip(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+    private func muscleChip(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(active ? OG.onAccent : OG.label)
                 .padding(.horizontal, 14)
                 .frame(height: 34)
-                .background(active ? OG.accent : OG.surface2, in: Capsule())
+                .modifier(ExercisePickerChipChrome(isSelected: active))
         }
         .buttonStyle(.plain)
     }
@@ -304,7 +347,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
                 let exerciseID = item.exercise.id
                 if seen.insert(exerciseID).inserted {
                     ids.append(exerciseID)
-                    if ids.count >= 8 { return ids }
+                    if ids.count >= 5 { return ids }
                 }
             }
         }
@@ -384,6 +427,20 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         let ids = rows.prefix(20).map(\.id)
         let window = ids.compactMap { byId[$0] }
         ExerciseArt.prefetchThumbs(for: window, limit: 20)
+    }
+}
+
+/// Seleccionado: verde sólido. No seleccionado: Liquid Glass (paridad Progreso).
+private struct ExercisePickerChipChrome: ViewModifier {
+    let isSelected: Bool
+    private let shape = Capsule(style: .continuous)
+
+    func body(content: Content) -> some View {
+        if isSelected {
+            content.background(shape.fill(OG.accent))
+        } else {
+            content.glassEffect(.regular.interactive(), in: shape)
+        }
     }
 }
 

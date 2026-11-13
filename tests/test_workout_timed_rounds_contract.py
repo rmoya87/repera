@@ -268,8 +268,10 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         confirm = PLAY.split("private func presentWODConfirmIfNeeded()", 1)[1].split(
             "private func presentScoreEditor(", 1
         )[0]
-        self.assertIn("finishedTimedBlockID = current.blockId ?? current.id", confirm)
+        self.assertIn("resultCapture == .perMovementSets", confirm)
         self.assertNotIn("store.finishCurrentTimedBlock()", confirm)
+        self.assertNotIn("finishedTimedBlockID", confirm)
+        self.assertNotIn("Registra las series realizadas", PLAY)
 
     def test_routine_for_editing_passes_exact_cap_after_emom_interval(self):
         # Swift exige el orden del init de RoutineBlock: emomIntervalSeconds
@@ -284,6 +286,129 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
             site.index("emomIntervalSeconds:"),
             site.index("timeCapSeconds:"),
         )
+
+    def test_android_tabata_skips_manual_config_sheet(self):
+        """Tabata/EMOM abren con launch config; no sheet ni espera a wod."""
+        play = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/ActiveWorkoutScreen.kt"
+        ).read_text(encoding="utf-8")
+        editor = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/RoutineBlocksEditor.kt"
+        ).read_text(encoding="utf-8")
+        sheet = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/BlockTimerConfigSheet.kt"
+        ).read_text(encoding="utf-8")
+        shell = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt"
+        ).read_text(encoding="utf-8")
+        clock = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/WodClockScreen.kt"
+        ).read_text(encoding="utf-8")
+        gate = play.split("fun openBlockClockOrConfig(", 1)[1].split(
+            "if (showPlayReorder)", 1
+        )[0]
+        self.assertIn("blockUi.format", gate)
+        self.assertIn('format.isBlank() || format.equals("strength"', gate)
+        # Tabata/EMOM/…: launch inmediato (nunca sheet libre).
+        self.assertIn("suppressDisposeFlush = true", gate)
+        self.assertIn("BlockClockLaunchConfig.fromBlockDraft", gate)
+        self.assertIn("onLaunchBlockClock(launch)", gate)
+        self.assertIn("flushPlayPlan()", gate)
+        # Abrir antes del flush; no depender de onSuccess/busy.
+        self.assertLess(
+            gate.index("onLaunchBlockClock(launch)"),
+            gate.index("flushPlayPlan()"),
+        )
+        # No flush ciego al dispose → reloj (carrera con busy).
+        self.assertIn("suppressDisposeFlush", play)
+        self.assertIn("if (!suppressDisposeFlush) flushPlayPlan()", play)
+        # playBlocks estable + Formato durable (sobrevive Finalizar reloj).
+        self.assertIn("remember(workout.id)", play)
+        self.assertIn("PlayBlockFormatStore", play)
+        self.assertIn("persistFormatOverride", play)
+        self.assertIn("ensurePlayDraftable", play)
+        self.assertIn("fun ensurePlayDraftable()", editor)
+        store = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/PlayBlockFormatStore.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("object PlayBlockFormatStore", store)
+        self.assertIn("fun clearSession", store)
+        self.assertIn("data class BlockClockLaunchConfig", sheet)
+        self.assertIn("fun fromBlockDraft", sheet)
+        self.assertIn("fun toSpec()", sheet)
+        self.assertIn("onLaunchBlockClock = { config ->", shell)
+        self.assertIn("launchClockConfig = config", shell)
+        launch = shell.split("onLaunchBlockClock = { config ->", 1)[1].split(
+            "loadGuideProvider =", 1
+        )[0]
+        self.assertIn('onWodTimerAction("reset")', launch)
+        self.assertIn('onWodTimerAction("start")', launch)
+        self.assertLess(
+            launch.index('onWodTimerAction("reset")'),
+            launch.index('onWodTimerAction("start")'),
+        )
+        self.assertIn("launchConfig = launchClockConfig", shell)
+        self.assertIn("launchConfig: BlockClockLaunchConfig? = null", clock)
+        self.assertIn("launch != null -> launch.toSpec()", clock)
+        self.assertIn("wasFinishedOnOpen", clock)
+        self.assertIn("onFinished()", clock.split("wasFinishedOnOpen = true", 1)[1].split(
+            "var lastRestLabel", 1
+        )[0])
+        self.assertIn("onFinished = {", shell)
+        self.assertIn("finishBlockClockAndReturnToPlay()", shell)
+        # No borrar Formato al acabar el reloj (paridad iOS / Play).
+        self.assertNotIn("clearFormatAfterClock", shell)
+        self.assertNotIn("clearFormatAfterClock", play)
+        # Pop a Play ANTES de anular launch (si no, reloj vacío hace segundo pop).
+        finish_fn = shell.split("fun finishBlockClockAndReturnToPlay()", 1)[1].split(
+            "LaunchedEffect(activeWorkout?.id", 1
+        )[0]
+        self.assertIn('popBackStack("entreno-activo", inclusive = false)', finish_fn)
+        self.assertLess(
+            finish_fn.index('popBackStack("entreno-activo"'),
+            finish_fn.index("launchClockConfig = null"),
+        )
+        self.assertNotIn("clearFormatAfterClock = true", finish_fn)
+        # Cambiar Formato en Play → flush + invalidar reloj stale.
+        self.assertIn("onFormatChanged", play)
+        self.assertIn("onBlockFormatChanged", play)
+        self.assertIn("invalidateBlockClockForFormatChange", shell)
+        self.assertIn("onFormatChanged:", editor)
+        pick = editor.split("BlockFormatPickerSheet(", 1)[1].split(
+            "// Campos alineados con iOS", 1
+        )[0]
+        self.assertIn('"tabata"', pick)
+        self.assertIn('block.work = "20"', pick)
+        self.assertIn('block.rest = "10"', pick)
+        self.assertIn('block.rounds = "8"', pick)
+        self.assertIn("onFormatChanged()", pick)
+        cards = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaCards.kt"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("repera_cards_siguiente_ejercicio", cards)
+        main = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt"
+        ).read_text(encoding="utf-8")
+        timer_fn = main.split("private fun changeWodTimer(", 1)[1].split(
+            "private fun beginLocationCapture(", 1
+        )[0]
+        self.assertNotIn("if (busy) return", timer_fn)
+        # Plan flush encolado: Formato no se pierde si busy.
+        self.assertIn("enqueueActivePlanUpdate", main)
+        self.assertIn("drainPendingPlanUpdateIfIdle", main)
+        self.assertIn("pendingPlanUpdateRef", main)
+        self.assertIn("enqueueActivePlanUpdate(", main)
+        # Abrir reloj con Tabata del draft (no sheet libre).
+        open_fn = play.split("fun openBlockClockOrConfig(", 1)[1].split(
+            "if (showPlayReorder)", 1
+        )[0]
+        timed = open_fn.split("if (!freeFormat)", 1)[1].split(
+            "val interval = workout.wod", 1
+        )[0]
+        self.assertIn('"tabata"', timed)
+        self.assertIn("fromBlockDraft", timed)
+        self.assertIn("return", timed)
+        self.assertIn("BlockClockLaunchConfig.fromBlockDraft", open_fn)
 
 
 if __name__ == "__main__":
