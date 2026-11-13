@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-13 (Play gate: preflight local + CI en main antes de beta).
+Última actualización: 2026-11-13 (Android Play VerifyError R8/Compose Añadir entreno).
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -444,17 +444,18 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   en `android-native-ci.yml`. No es un bug de la app.
 - Contrato: `android/scripts/test_upload_play_release.py`.
 
-#### Android — Comenzar VerifyError R8 outliner / AGP 9.4.0 (10/11/2026)
-- Release minificado con **AGP 9.4.0** puede crashear al abrir Comenzar:
-  `java.lang.VerifyError` / `register vN has type Undefined but expected Integer`
-  sobre la clase ofuscada de `LiveActivityScreen` (firma Compose con
-  `onSavedAndEdit` + `autoStartAfterChoose`). No es un bug de UI ni de
-  permisos MIUI (`FrameInsert`/`miuilog` son ruido del OEM).
-- Causa: bug del **outliner de R8** (issuetracker `b/551348855`), corregido en
-  **AGP ≥ 9.4.1** (también listado en 9.3.3). Mantener
-  `android/build.gradle.kts` en 9.4.1+; no bajar.
-- Debug/`minifyEnabled false` no reproduce el fallo. Tras subir AGP: regenerar
-  AAB/APK release e instalar en dispositivo (no basta compileDebug).
+#### Android — VerifyError R8/Compose en release (Comenzar + Añadir entreno) (13/11/2026)
+- Debug no minifica → no reproduce. Play minify sí: al pulsar «Añadir entreno»
+  (o antes Comenzar) ART rechaza una clase ofuscada Compose con
+  `VerifyError` / `register vN has type Undefined but expected Integer`
+  (logcat Xiaomi 2026-11-13, Play **2026.11.9** / vc **455809**, clase `k08`).
+- Causa: bugs R8 (outliner `b/551348855` + optimización agresiva de
+  `@Composable`). **AGP 9.4.1 no bastó** para DayPlus; pin **AGP ≥ 9.5.1**,
+  `-Dcom.android.tools.r8.disableOutlining=true` en `gradle.properties`, y
+  keep de métodos `@Composable` en `androidx.**` + `dev.repera.mobile.**`
+  (`proguard-rules.pro`).
+- Tras el cambio: `assembleRelease` / AAB, instalar en hardware y abrir
+  Inicio → ＋ → Añadir entreno (no basta compileDebug ni JVM).
 - Contrato: `tests/test_android_r8_agp_contract.py`.
 - **CI Play:** `android-native-ci.yml` en push solo `origin/beta` (no `main`).
   Deploy Play = job `deploy-internal-beta`. Contrato:

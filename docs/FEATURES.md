@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-13 (Título bloque grande dentro; ⋯ circular morph).
+Última actualización: 2026-11-13 (Android release R8/Compose VerifyError Añadir entreno).
 
 ## Gestión de entrenamientos — auditoría 2 (12/11/2026)
 
@@ -77,7 +77,7 @@ En iPhone, Android y Wear, el icono de la pantalla de inicio mantiene la misma m
 
 ## Comenzar — nueva experiencia de inicio y sesión (06/11/2026)
 
-- **Android release:** builds con AGP **9.4.1+** (R8 outliner). Con AGP 9.4.0, al abrir Comenzar el proceso podía morir con `VerifyError` en `LiveActivityScreen` minificado; no afecta a debug sin minify.
+- **Android release:** AGP **≥ 9.5.1** + keep `@Composable` / `disableOutlining`. Con minify, ART puede rechazar DEX Compose (`VerifyError`); debug sin minify no lo muestra. Play 2026.11.9 fallaba al abrir «Añadir entreno».
 - **Preparación:** inicia en **Métricas**. Tres controles **Liquid Glass flotantes** (Opciones / Play verde / actividad) fijos encima del menú principal en mapa y métricas — **no** van con el scroll; aire ~10 pt sobre el safe area de la tab (sin re-sumar altura de menú). Al grabar/pausar se **oculta la tab bar** y los mismos controles quedan anclados abajo. Mis rutas a página completa sin subtítulo iCloud.
 - **En vivo (GPS):** pager horizontal — página 0 **Opciones**, página medio **centro** (métricas o mapa), página 2 **opuesto**. Chrome: **Finalizar / Play / candado**. Badge de deporte (nombre + icono) **arriba a la izquierda** en métricas y mapa (idle y vivo); FAB 2D/3D a la derecha en mapa. Bloquear **no cambia** de página; oculta Finalizar y los **puntos del pager**. Swipe también desde el chrome inferior.
 - **Opciones:** idle = **modal/sheet** fitted desde el engrane; en vivo = página del pager (Audio, Mapa, **Cuenta atrás**). El bloqueo ya no es switch de Opciones.

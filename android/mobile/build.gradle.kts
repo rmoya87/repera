@@ -68,8 +68,12 @@ android {
 
     buildTypes {
         release {
-            if (providers.environmentVariable("REPERA_UPLOAD_KEYSTORE_FILE").isPresent) {
-                signingConfig = signingConfigs.getByName("release")
+            // CI Play usa upload keystore. Local: firma debug para poder
+            // instalar minify release y reproducir VerifyError sin Play.
+            signingConfig = if (providers.environmentVariable("REPERA_UPLOAD_KEYSTORE_FILE").isPresent) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
             }
             // R8 + resource shrinking; keeps and log stripping live in proguard-rules.pro.
             isMinifyEnabled = true
