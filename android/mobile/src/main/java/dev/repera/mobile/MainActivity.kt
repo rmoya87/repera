@@ -2109,15 +2109,41 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val account = profile?.uniqueId ?: return@runOnUiThread
                 val sessionId = payload.optString("sessionId")
                 if (activeWorkout?.id != sessionId) return@runOnUiThread
-                val rounds = if (payload.has("roundsCompleted") && !payload.isNull("roundsCompleted"))
-                    payload.optInt("roundsCompleted") else null
-                val reps = if (payload.has("totalReps") && !payload.isNull("totalReps"))
-                    payload.optInt("totalReps") else null
-                val elapsed = if (payload.has("elapsedSeconds") && !payload.isNull("elapsedSeconds"))
-                    payload.optInt("elapsedSeconds") else null
-                runWorkoutAction {
-                    WorkoutRepository(this@MainActivity, account)
-                        .recordWodScore(rounds, reps, elapsed)
+                // This is the existing account/session-scoped Wear channel.
+                // A partial score MUST NOT complete the block or create sets.
+                val partial = payload.optJSONObject("phaseResult")
+                if (partial != null) {
+                    val phase = partial.optString("phaseID")
+                    val iteration = partial.optInt("iteration")
+                    val reps = partial.optInt("completedReps").takeIf {
+                        partial.has("completedReps") && !partial.isNull("completedReps")
+                    }
+                    if (phase.isBlank() || iteration < 1 || reps == null) return@runOnUiThread
+                    val participant = partial.optInt("participantIndex").takeIf {
+                        partial.has("participantIndex") && !partial.isNull("participantIndex")
+                    }
+                    runWorkoutAction {
+                        WorkoutRepository(this@MainActivity, account)
+                            .recordWodPhaseResult(phase, iteration, participant, reps)
+                    }
+                } else {
+                    val rounds = if (payload.has("roundsCompleted") && !payload.isNull("roundsCompleted"))
+                        payload.optInt("roundsCompleted") else null
+                    val reps = if (payload.has("totalReps") && !payload.isNull("totalReps"))
+                        payload.optInt("totalReps") else null
+                    val elapsed = if (payload.has("elapsedSeconds") && !payload.isNull("elapsedSeconds"))
+                        payload.optInt("elapsedSeconds") else null
+                    val metric = payload.optString("measuredMetric").takeIf {
+                        it in setOf("loadKg","calories","distanceMeters")
+                    }
+                    val measured = payload.optDouble("measuredValue").takeIf {
+                        metric != null && payload.has("measuredValue") &&
+                        !payload.isNull("measuredValue") && it.isFinite()
+                    }
+                    runWorkoutAction {
+                        WorkoutRepository(this@MainActivity, account)
+                            .recordWodScore(rounds, reps, elapsed, measured, metric)
+                    }
                 }
             }
             return

@@ -114,6 +114,10 @@ internal data class WearHomeState(
     val reviewRounds: Int = 0,
     val reviewExtraReps: Int = 0,
     val reviewElapsedSeconds: Int = 0,
+    val reviewMeasuredValue: Double = 0.0,
+    val reviewPhaseIteration: Int = 1,
+    val reviewParticipantIndex: Int = 1,
+    val reviewPartialReps: Int = 0,
     val setReviewIndex: Int? = null,
     val liveActivity: JSONObject? = null,
     val hubIndex: Int = 0,
@@ -254,6 +258,11 @@ internal class WearHomeCallbacks(
     val onAdjustReviewRounds: (Int) -> Unit = {},
     val onAdjustReviewExtraReps: (Int) -> Unit = {},
     val onAdjustReviewElapsed: (Int) -> Unit = {},
+    val onAdjustMeasuredValue: (Double) -> Unit = {},
+    val onAdjustReviewPhase: (Int) -> Unit = {},
+    val onSelectReviewParticipant: (Int) -> Unit = {},
+    val onAdjustReviewPartialReps: (Int) -> Unit = {},
+    val onSaveReviewPartial: () -> Unit = {},
     val onSwipeSet: (Int) -> Unit = {},
     val onPreviousStep: () -> Unit = {},
     val onHubPlay: (WearHubCarouselItem) -> Unit = {},
@@ -1084,6 +1093,9 @@ private fun TransformingLazyColumnScope.blockReviewItems(
 ) {
     val session = state.session ?: return
     val format = WodFormat.fromWire(session.wodFormatWire.orEmpty())
+    val measured = format == WodFormat.MAX_EFFORT &&
+        session.wodResultMetric in setOf("loadKg", "calories", "distanceMeters")
+    val scoredTime = format == WodFormat.MAX_EFFORT && session.wodResultMetric == "elapsedSeconds"
     item {
         Text(
             "Resultado del bloque",
@@ -1102,7 +1114,21 @@ private fun TransformingLazyColumnScope.blockReviewItems(
             )
         }
     }
-    if (format?.capture == dev.repera.domain.ResultCapture.TOTAL_REPS) {
+    if (measured) {
+        val unit = when (session.wodResultMetric) {
+            "loadKg" -> "kg"; "calories" -> "kcal"; else -> "m"
+        }
+        val step = if (session.wodResultMetric == "loadKg") 0.5 else 1.0
+        item {
+            WearMetricStepper(
+                "Marca máxima", dev.repera.domain.ReperaNumberFormat.decimal(state.reviewMeasuredValue) + " " + unit,
+                onMinus = { callbacks.onAdjustMeasuredValue(-step) },
+                onPlus = { callbacks.onAdjustMeasuredValue(step) }
+            )
+        }
+    }
+    if (format?.capture == dev.repera.domain.ResultCapture.TOTAL_REPS &&
+        !measured && !scoredTime) {
         val label = if (format == WodFormat.AMRAP) "Reps adicionales" else "Repeticiones totales"
         item {
             WearMetricStepper(
@@ -1112,7 +1138,7 @@ private fun TransformingLazyColumnScope.blockReviewItems(
             )
         }
     }
-    if (format?.capture == dev.repera.domain.ResultCapture.ELAPSED_TIME) {
+    if (format?.capture == dev.repera.domain.ResultCapture.ELAPSED_TIME || scoredTime) {
         item {
             WearMetricStepper(
                 "Tiempo final",
@@ -1140,8 +1166,44 @@ private fun TransformingLazyColumnScope.blockReviewItems(
             )
         }
     }
+    if (!session.wodPhaseID.isNullOrBlank()) {
+        item { Text(if (session.wodCollaboration != null && session.wodCollaboration != "solo")
+                "Parcial por atleta" else "Parcial del intervalo",
+                style = MaterialTheme.typography.labelMedium, color = WearOg.label2) }
+        if (session.wodPhaseCount > 1) {
+            item {
+                WearMetricStepper(
+                    "Intervalo", "${state.reviewPhaseIteration}/${session.wodPhaseCount}",
+                    onMinus = { callbacks.onAdjustReviewPhase(-1) },
+                    onPlus = { callbacks.onAdjustReviewPhase(1) }
+                )
+            }
+        }
+        if (session.wodCollaboration != null && session.wodCollaboration != "solo") {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { callbacks.onSelectReviewParticipant(1) }) {
+                        Text(if (state.reviewParticipantIndex == 1) "✓ Atleta 1" else "Atleta 1")
+                    }
+                    TextButton(onClick = { callbacks.onSelectReviewParticipant(2) }) {
+                        Text(if (state.reviewParticipantIndex == 2) "✓ Atleta 2" else "Atleta 2")
+                    }
+                }
+            }
+        }
+        item {
+            WearMetricStepper("Reps parcial", "${state.reviewPartialReps}",
+                onMinus = { callbacks.onAdjustReviewPartialReps(-1) },
+                onPlus = { callbacks.onAdjustReviewPartialReps(1) })
+        }
+        item {
+            WearPrimaryButton("Guardar parcial") { callbacks.onSaveReviewPartial() }
+        }
+    }
     item {
-        WearPrimaryButton("Terminar") { callbacks.onConfirmBlock() }
+        WearPrimaryButton("Terminar", enabled = !measured || state.reviewMeasuredValue > 0) {
+            callbacks.onConfirmBlock()
+        }
     }
 }
 

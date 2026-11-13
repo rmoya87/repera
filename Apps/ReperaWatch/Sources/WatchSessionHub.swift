@@ -61,6 +61,10 @@ final class WatchSessionHub: NSObject {
     private(set) var remainingRoundReps = 0
     private(set) var reviewElapsedSeconds: Int?
     private(set) var reviewingBlock = false
+    private(set) var reviewPhaseIteration = 1
+    private(set) var reviewParticipantIndex = 1
+    private(set) var reviewPartialReps = 0
+    private(set) var reviewMaxValue = 0.0
     private(set) var acknowledgedSessionID: UUID?
     private(set) var phoneReachable = false
     private(set) var phoneHasOwnerScope = false
@@ -2092,6 +2096,105 @@ final class WatchSessionHub: NSObject {
         }
     }
 
+    var reviewTrackedPhase: WorkoutPhase? {
+        current?.blockStructure?.phases.first(where: {
+            $0.kind == .work && ($0.repeatCount ?? 0) > 1
+        }) ?? current?.blockStructure?.phases.first(where: { $0.kind != .rest })
+    }
+
+    var reviewHasTeam: Bool {
+        guard let mode = current?.blockStructure?.collaboration else { return false }
+        return mode != .solo
+    }
+
+    var reviewScoreMetric: WorkoutResultMetric? {
+        current?.blockStructure?.resultMetric
+    }
+    var reviewScoreIsMeasured: Bool {
+        guard let metric = reviewScoreMetric else { return false }
+        return [.loadKg, .calories, .distanceMeters].contains(metric)
+    }
+
+    var canConfirmReviewBlock: Bool {
+        !reviewScoreIsMeasured || reviewMaxValue > 0
+    }
+
+    private func existingReviewResult() -> WODBlockResult? {
+        guard let id = current?.blockId else { return nil }
+        return controller?.session.wodResults.last(where: { $0.id == id })
+    }
+
+    private func reloadReviewPartial() {
+        guard let phase = reviewTrackedPhase else {
+            reviewPartialReps = 0
+            return
+        }
+        reviewPartialReps = existingReviewResult()?.phaseResults?.first(where: {
+            $0.phaseID == phase.id && $0.iteration == reviewPhaseIteration &&
+                $0.participantIndex == (reviewHasTeam ? reviewParticipantIndex : nil)
+                && $0.movementID == nil
+        })?.completedReps ?? 0
+    }
+
+    func adjustReviewPhaseIteration(_ delta: Int) {
+        guard reviewingBlock, let phase = reviewTrackedPhase else { return }
+        let count = min(200, max(1, phase.repeatCount ?? 1))
+        reviewPhaseIteration = min(count, max(1, reviewPhaseIteration + delta))
+        reloadReviewPartial()
+        save()
+    }
+
+    func selectReviewParticipant(_ participant: Int) {
+        guard reviewingBlock, reviewHasTeam, (1...2).contains(participant) else { return }
+        reviewParticipantIndex = participant
+        reloadReviewPartial()
+        save()
+    }
+
+    func adjustReviewPartialReps(_ delta: Int) {
+        guard reviewingBlock, reviewTrackedPhase != nil else { return }
+        reviewPartialReps = min(100_000, max(0, reviewPartialReps + delta))
+        save()
+    }
+
+    func adjustReviewMaxValue(_ delta: Double) {
+        guard reviewingBlock, current?.wodFormat == .maxEffort,
+              let metric = reviewScoreMetric,
+              [.loadKg, .calories, .distanceMeters].contains(metric) else { return }
+        reviewMaxValue = min(50_000, max(0, ((reviewMaxValue + delta) * 2.0).rounded() / 2.0))
+        save()
+    }
+
+    /// Partial score is explicitly recorded, without advancing the WOD or
+    /// writing any fabricated LoggedSet. It survives watch/phone sync.
+    func saveReviewPhaseResult() {
+        guard reviewingBlock, let phase = reviewTrackedPhase,
+              let current, let blockID = current.blockId,
+              var ctrl = controller else { return }
+        let existing = existingReviewResult()
+        var rows = existing?.phaseResults ?? []
+        let athlete = reviewHasTeam ? reviewParticipantIndex : nil
+        let previous = rows.first(where: {
+            $0.phaseID == phase.id && $0.iteration == reviewPhaseIteration &&
+                $0.participantIndex == athlete && $0.movementID == nil
+        })
+        let result = WorkoutPhaseResult(
+            id: previous?.id ?? UUID(), phaseID: phase.id,
+            iteration: reviewPhaseIteration, participantIndex: athlete,
+            completedReps: reviewPartialReps
+        )
+        guard result.isValid else { return }
+        rows.removeAll { $0.phaseID == phase.id &&
+            $0.iteration == reviewPhaseIteration &&
+            $0.participantIndex == athlete && $0.movementID == nil }
+        rows.append(result)
+        var score = existing ?? WODBlockResult(id: blockID, format: current.wodFormat)
+        score.phaseResults = rows
+        ctrl.recordWODResult(score)
+        controller = ctrl
+        checkpoint()
+    }
+
     func adjustRounds(_ delta: Int) {
         completedRounds = max(0, completedRounds + delta)
         save()
@@ -2108,6 +2211,10 @@ final class WatchSessionHub: NSObject {
         isPaused = true
         reviewingBlock = true
         reviewElapsedSeconds = blockElapsed
+        reviewPhaseIteration = 1
+        reviewParticipantIndex = 1
+        reviewMaxValue = existingReviewResult()?.measuredValue ?? 0
+        reloadReviewPartial()
         lastClockTick = nil
         stopMotion()
         if startedOnThisWatch { health.pause() }
@@ -2116,7 +2223,10 @@ final class WatchSessionHub: NSObject {
 
     /// Users can correct their actual finishing time before saving For Time.
     func adjustScoreSeconds(_ delta: Int) {
-        guard reviewingBlock, current?.wodFormat?.resultCapture == .elapsedTime else { return }
+        guard reviewingBlock,
+              current?.wodFormat?.resultCapture == .elapsedTime ||
+                (current?.wodFormat == .maxEffort &&
+                 reviewScoreMetric == .elapsedSeconds) else { return }
         reviewElapsedSeconds = max(0, (reviewElapsedSeconds ?? blockElapsed) + delta)
         save()
     }
@@ -2127,16 +2237,29 @@ final class WatchSessionHub: NSObject {
               let current = ctrl.session.currentExercise,
               let id = current.blockId else { return }
         let format = current.wodFormat
-        let elapsed: Int? = format?.resultCapture == .elapsedTime
-            ? (reviewElapsedSeconds ?? blockElapsed) : nil
+        guard canConfirmReviewBlock else { return }
+        let metric = format == .maxEffort ? reviewScoreMetric : nil
+        let measured = metric.map { [.loadKg, .calories, .distanceMeters].contains($0) } ?? false
+        let timeScore = format?.resultCapture == .elapsedTime ||
+            metric == .elapsedSeconds
+        let elapsed: Int? = timeScore
+            ? max(1, reviewElapsedSeconds ?? blockElapsed) : nil
         let rounds: Int? = (format == .amrap || format == .deathBy)
             ? completedRounds : nil
-        let reps: Int? = format?.resultCapture == .totalReps ? remainingRoundReps : nil
+        let reps: Int? = format?.resultCapture == .totalReps &&
+            !measured && !timeScore ? remainingRoundReps : nil
         let templateID = ctrl.session.routineBlocks?
             .first(where: { $0.id == id })?.wodTemplateId
-        let score = WODBlockResult(id: id, format: format,
-                                   totalReps: reps, elapsedSeconds: elapsed,
-                                   roundsCompleted: rounds, wodTemplateId: templateID)
+        let existing = ctrl.session.wodResults.last(where: { $0.id == id })
+        let score = WODBlockResult(
+            id: id, format: format,
+            totalReps: reps, elapsedSeconds: elapsed,
+            roundsCompleted: rounds, wodTemplateId: templateID,
+            isRx: existing?.isRx,
+            measuredValue: measured && reviewMaxValue > 0 ? reviewMaxValue : nil,
+            measuredMetric: measured && reviewMaxValue > 0 ? metric : nil,
+            phaseResults: existing?.phaseResults
+        )
         if !wodUsesSeries { ctrl.recordWODResult(score) }
         _ = ctrl.finishCurrentBlock()
         controller = ctrl

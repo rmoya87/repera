@@ -102,3 +102,24 @@ independiente y no se debe afirmar que existe.
   dos atletas, series avanzadas, reloj, edición de marcas y sincronización.
   No dar por validados estos puntos únicamente porque se haya fusionado
   el código.
+
+## Registro desde los relojes — 13/11/2026
+
+- **Apple Watch:** en revisión de bloque se selecciona la unidad de Max
+  Effort definida por la prescripción y se registran kg, calorías o metros.
+  Las cargas admiten pasos de 0,5 kg. Los parciales de AMRAP y equipo se
+  guardan explícitamente por fase/iteración/atleta y no completan el WOD.
+  El resultado final conserva los parciales ya anotados.
+- **Wear OS:** la misma pantalla de revisión ofrece valor máximo y parciales
+  por intervalo/atleta. Para sesiones iniciadas en el reloj, los datos se
+  conservan en su snapshot protegido. Para sesiones del teléfono, se usa el
+  canal existente `/repera/wod-score` con `phaseResult` opcional y
+  validación de sesión activa en el teléfono; no se añade una nueva ruta
+  capaz de duplicar series o finalizar automáticamente.
+- **Retrocompatibilidad:** un WOD sin `structure` o sin métrica tipada
+  mantiene el score clásico. Los relojes no inventan la unidad de una
+  prueba máxima a partir de las repeticiones.
+- **Pruebas:** `tests/test_watch_advanced_wod_contract.py` comprueba la
+  conexión de las pantallas con el almacenamiento y los canales, pero no
+  sustituye la compilación de watchOS/Wear OS ni una prueba real de
+  interrupciones, sesión offline o reconexión.

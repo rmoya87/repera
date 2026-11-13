@@ -60,6 +60,7 @@ import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
 import dev.repera.domain.LiveSport
 import dev.repera.domain.WearBlockHeader
+import kotlin.math.roundToInt
 
 /**
  * This first native screen renders only genuine phone-delivered data.
@@ -331,6 +332,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var reviewRounds by mutableStateOf(0)
     private var reviewExtraReps by mutableStateOf(0)
     private var reviewElapsedSeconds by mutableStateOf(0)
+    private var reviewMeasuredValue by mutableStateOf(0.0)
+    private var reviewPhaseIteration by mutableStateOf(1)
+    private var reviewParticipantIndex by mutableStateOf(1)
+    private var reviewPartialReps by mutableStateOf(0)
     private var setReviewIndex by mutableStateOf<Int?>(null)
     private val sessionCache by lazy { getSharedPreferences("repera.wear.session", MODE_PRIVATE) }
 
@@ -550,6 +555,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 reviewRounds = reviewRounds,
                                 reviewExtraReps = reviewExtraReps,
                                 reviewElapsedSeconds = reviewElapsedSeconds,
+                                reviewMeasuredValue = reviewMeasuredValue,
+                                reviewPhaseIteration = reviewPhaseIteration,
+                                reviewParticipantIndex = reviewParticipantIndex,
+                                reviewPartialReps = reviewPartialReps,
                                 setReviewIndex = setReviewIndex,
                                 hubNotice = hubNotice,
                                 liveNotice = liveNotice,
@@ -694,6 +703,25 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 onAdjustReviewElapsed = { d ->
                                     reviewElapsedSeconds = (reviewElapsedSeconds + d).coerceAtLeast(0)
                                 },
+                                onAdjustMeasuredValue = { d ->
+                                    reviewMeasuredValue = ((reviewMeasuredValue + d) * 2.0)
+                                        .coerceIn(0.0, 100_000.0).roundToInt() / 2.0
+                                },
+                                onAdjustReviewPhase = { d ->
+                                    val max = visibleSession?.wodPhaseCount ?: 1
+                                    reviewPhaseIteration = (reviewPhaseIteration + d).coerceIn(1, max)
+                                    reloadPartialReview()
+                                },
+                                onSelectReviewParticipant = { n ->
+                                    if (n in 1..2) {
+                                        reviewParticipantIndex = n
+                                        reloadPartialReview()
+                                    }
+                                },
+                                onAdjustReviewPartialReps = { d ->
+                                    reviewPartialReps = (reviewPartialReps + d).coerceIn(0, 100_000)
+                                },
+                                onSaveReviewPartial = { savePartialWodReview() },
                                 onSwipeSet = { delta ->
                                     val session = visibleSession ?: return@WearHomeCallbacks
                                     val planned = maxOf(1, session.plannedWorkSets)
@@ -2473,6 +2501,87 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (visibleSession?.wodFormatLabel != null) controlLocalWodTimer("start")
     }
 
+    private fun reviewPhaseFromSnapshot(): JSONObject? {
+        val current = visibleSession ?: return null
+        val snapshot=sessionCache.getString("snapshot", null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
+        val scores=snapshot.optJSONArray("wodResults") ?: return null
+        val score=(0 until scores.length()).map {scores.getJSONObject(it)}
+            .firstOrNull { it.optString("id")==current.blockId } ?: return null
+        val rows=score.optJSONArray("phaseResults") ?: return null
+        val phaseID=current.wodPhaseID ?: return null
+        val athlete=if(current.wodCollaboration.isNullOrBlank() || current.wodCollaboration=="solo")
+            -1 else reviewParticipantIndex
+        return (0 until rows.length()).map { rows.getJSONObject(it) }.firstOrNull {
+            it.optString("phaseID")==phaseID && it.optInt("iteration")==reviewPhaseIteration &&
+            it.optInt("participantIndex",-1)==athlete && it.optString("movementID").isBlank()
+        }
+    }
+
+    private fun reloadPartialReview() {
+        reviewPartialReps=reviewPhaseFromSnapshot()?.optInt("completedReps") ?: 0
+    }
+
+    /** Explicit partial save: never completes the current block or creates sets. */
+    private fun savePartialWodReview() {
+        val session=visibleSession ?: return
+        val phaseID=session.wodPhaseID ?: return
+        val blockID=session.blockId ?: return
+        if (reviewPhaseIteration !in 1..session.wodPhaseCount) return
+        val team = !session.wodCollaboration.isNullOrBlank() &&
+            session.wodCollaboration!="solo"
+        val result=JSONObject().put("phaseID",phaseID)
+            .put("iteration",reviewPhaseIteration)
+            .put("completedReps",reviewPartialReps)
+        if (team) result.put("participantIndex",reviewParticipantIndex)
+        // Keep the same score key when the athlete edits an earlier interval.
+        if (watchStartedSession) {
+            val snapshot=sessionCache.getString("snapshot",null)
+                ?.let{runCatching{JSONObject(it)}.getOrNull()} ?:return
+            val scores=snapshot.optJSONArray("wodResults")?:JSONArray()
+            val existing=(0 until scores.length()).map{scores.getJSONObject(it)}
+                .firstOrNull{it.optString("id")==blockID}
+            val score=existing?.let{JSONObject(it.toString())}
+                ?:JSONObject().put("id",blockID).put("format",session.wodFormatWire)
+            val prior=score.optJSONArray("phaseResults")?:JSONArray()
+            val next=JSONArray()
+            val athlete=if(team)reviewParticipantIndex else -1
+            for(i in 0 until prior.length()){
+                val row=prior.getJSONObject(i)
+                if(row.optString("phaseID")==phaseID &&
+                   row.optInt("iteration")==reviewPhaseIteration &&
+                   row.optInt("participantIndex",-1)==athlete &&
+                   row.optString("movementID").isBlank()) {
+                    result.put("id",row.optString("id").ifBlank{java.util.UUID.randomUUID().toString()})
+                } else next.put(row)
+            }
+            if(!result.has("id")) result.put("id",java.util.UUID.randomUUID().toString())
+            next.put(result)
+            score.put("phaseResults",next)
+            val updated=JSONArray()
+            for(i in 0 until scores.length()) {
+                if(scores.getJSONObject(i).optString("id")!=blockID)
+                    updated.put(scores.getJSONObject(i))
+            }
+            updated.put(score)
+            snapshot.put("wodResults",updated)
+            sessionCache.edit().putString("snapshot",snapshot.toString()).commit()
+            sendStatus="Parcial registrado"
+        } else {
+            val payload=JSONObject().put("sessionId",session.sessionId)
+                .put("blockId",blockID).put("phaseResult",result)
+                .toString().toByteArray(Charsets.UTF_8)
+            Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+                nodes.forEach {
+                    Wearable.getMessageClient(this)
+                        .sendMessage(it.id,"/repera/wod-score",payload)
+                }
+                sendStatus=if(nodes.isEmpty())"Sin conexión para guardar parcial"
+                    else "Parcial enviado al teléfono"
+            }
+        }
+    }
+
     private fun beginBlockReview() {
         val session = visibleSession ?: return
         if (session.wodFormatLabel == null) return
@@ -2484,6 +2593,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         reviewRounds = 0
         reviewExtraReps = 0
         reviewElapsedSeconds = elapsedSeconds
+        reviewPhaseIteration = 1
+        reviewParticipantIndex = 1
+        val cached = sessionCache.getString("snapshot",null)
+            ?.let {runCatching {JSONObject(it)}.getOrNull()}
+        val saved = cached?.optJSONArray("wodResults")?.let { results ->
+            (0 until results.length()).map { results.getJSONObject(it) }
+                .lastOrNull { it.optString("id")==session.blockId }
+        }
+        reviewMeasuredValue = saved?.optDouble("measuredValue")?.takeIf {
+            saved.has("measuredValue") && it.isFinite() && it > 0
+        } ?: 0.0
+        reloadPartialReview()
         healthConnection?.pause(session.sessionId, true)
         restJob?.cancel()
     }
@@ -2492,6 +2613,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val session = visibleSession ?: return
         if (!reviewingBlock) return
         val format = WodFormat.fromWire(session.wodFormatWire.orEmpty())
+        val measured = format == WodFormat.MAX_EFFORT &&
+            session.wodResultMetric in setOf("loadKg","calories","distanceMeters")
+        val scoreIsTime = format?.capture == dev.repera.domain.ResultCapture.ELAPSED_TIME ||
+            (format == WodFormat.MAX_EFFORT && session.wodResultMetric == "elapsedSeconds")
+        if (measured && reviewMeasuredValue <= 0.0) {
+            sendStatus = "Introduce una marca antes de terminar"
+            return
+        }
         if (watchStartedSession) {
             val snapshot = sessionCache.getString("snapshot", null)
                 ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return
@@ -2499,18 +2628,28 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             val blockId = session.blockId
             if (!blockId.isNullOrBlank() && format != null &&
                 format.capture != dev.repera.domain.ResultCapture.PER_MOVEMENT_SETS) {
+                val previous = snapshot.optJSONArray("wodResults") ?: JSONArray()
+                val existingScore=(0 until previous.length())
+                    .map {previous.getJSONObject(it)}
+                    .lastOrNull{it.optString("id")==blockId}
                 val score = JSONObject().put("id", blockId).put("format", format.wireName)
-                when (format.capture) {
+                if(measured) {
+                    score.put("measuredMetric", session.wodResultMetric)
+                        .put("measuredValue", reviewMeasuredValue)
+                } else if(scoreIsTime) {
+                    score.put("elapsedSeconds", reviewElapsedSeconds.coerceAtLeast(1))
+                } else when(format.capture) {
                     dev.repera.domain.ResultCapture.TOTAL_REPS -> {
-                        if (format == WodFormat.AMRAP || format == WodFormat.DEATH_BY)
-                            score.put("roundsCompleted", reviewRounds)
-                        score.put("totalReps", reviewExtraReps)
+                        if(format==WodFormat.AMRAP || format==WodFormat.DEATH_BY)
+                            score.put("roundsCompleted",reviewRounds)
+                        score.put("totalReps",reviewExtraReps)
                     }
-                    dev.repera.domain.ResultCapture.ELAPSED_TIME ->
-                        score.put("elapsedSeconds", reviewElapsedSeconds)
                     else -> {}
                 }
-                val previous = snapshot.optJSONArray("wodResults") ?: JSONArray()
+                existingScore?.optJSONArray("phaseResults")?.let {
+                    score.put("phaseResults",it)
+                }
+                if(existingScore?.has("isRx")==true)score.put("isRx",existingScore.get("isRx"))
                 val revised = JSONArray()
                 for (i in 0 until previous.length()) {
                     if (previous.getJSONObject(i).optString("id") != blockId)
@@ -2556,10 +2695,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 .put("sessionId", session.sessionId)
                 .put("blockId", session.blockId)
                 .put("format", format.wireName)
-                .put("roundsCompleted", reviewRounds)
-                .put("totalReps", reviewExtraReps)
-                .put("elapsedSeconds", reviewElapsedSeconds)
-                .toString().toByteArray(Charsets.UTF_8)
+                .apply {
+                    if(measured) {
+                        put("measuredMetric",session.wodResultMetric)
+                        put("measuredValue",reviewMeasuredValue)
+                    } else if(scoreIsTime) {
+                        put("elapsedSeconds",reviewElapsedSeconds.coerceAtLeast(1))
+                    } else if(format.capture==dev.repera.domain.ResultCapture.TOTAL_REPS) {
+                        if(format==WodFormat.AMRAP || format==WodFormat.DEATH_BY)
+                            put("roundsCompleted",reviewRounds)
+                        put("totalReps",reviewExtraReps)
+                    }
+                }.toString().toByteArray(Charsets.UTF_8)
             Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
                 nodes.forEach {
                     Wearable.getMessageClient(this).sendMessage(it.id, "/repera/wod-score", payload)
@@ -3079,7 +3226,11 @@ data class WatchSessionSummary(
     val blockTimeCapMinutes: Int? = null,
     val wodFormatWire: String? = null,
     val blockId: String? = null,
-    val blockExerciseLines: List<String> = emptyList()
+    val blockExerciseLines: List<String> = emptyList(),
+    val wodResultMetric: String? = null,
+    val wodPhaseID: String? = null,
+    val wodPhaseCount: Int = 1,
+    val wodCollaboration: String? = null
 ) {
     companion object {
         /** (first exercise index, Apple displayBlockHeader) per consecutive block run. */
@@ -3162,6 +3313,16 @@ data class WatchSessionSummary(
                 val reps = ps?.takeIf { it.length() > 0 }?.optJSONObject(0)?.optInt("targetReps")
                 if (reps != null && reps > 0) "$name · $reps reps" else name
             }
+            val parentBlock=session.optJSONArray("routineBlocks")?.let { blocks ->
+                (0 until blocks.length()).map { blocks.getJSONObject(it) }
+                    .firstOrNull { it.optString("id") == blockId }
+            }
+            val structure=parentBlock?.optJSONObject("structure")
+            val scorePhase=structure?.optJSONArray("phases")?.let { phases ->
+                val list=(0 until phases.length()).map { phases.getJSONObject(it) }
+                list.firstOrNull { it.optString("kind")=="work" && it.optInt("repeatCount")>1 }
+                    ?:list.firstOrNull { it.optString("kind")!="rest" }
+            }
             return WatchSessionSummary(
                 sessionId = session.getString("id"),
                 title = session.getString("title"),
@@ -3213,7 +3374,11 @@ data class WatchSessionSummary(
                 blockTimeCapMinutes = intField("blockTimeCapMinutes"),
                 wodFormatWire = wodFormat?.wireName,
                 blockId = blockId.takeIf { it.isNotBlank() },
-                blockExerciseLines = blockLines
+                blockExerciseLines = blockLines,
+                wodResultMetric = structure?.optString("resultMetric")?.takeIf { it.isNotBlank() },
+                wodPhaseID = scorePhase?.optString("id")?.takeIf { it.isNotBlank() },
+                wodPhaseCount = scorePhase?.optInt("repeatCount",1)?.coerceIn(1,200) ?: 1,
+                wodCollaboration = structure?.optString("collaboration")?.takeIf { it.isNotBlank() }
             )
         }
     }
@@ -3284,11 +3449,26 @@ internal data class FinishedSummary(
                     val r = results.optJSONObject(i) ?: continue
                     val fmt = WodFormat.fromWire(r.optString("format"))?.displayName ?: "WOD"
                     val value = when {
+                        r.has("measuredValue") && !r.isNull("measuredValue") -> {
+                            val measured = r.optDouble("measuredValue")
+                            val unit = when(r.optString("measuredMetric")) {
+                                "loadKg" -> "kg"; "calories" -> "kcal"
+                                "distanceMeters" -> "m"; else -> ""
+                            }
+                            dev.repera.domain.ReperaNumberFormat.decimal(measured)+" "+unit
+                        }
                         r.has("elapsedSeconds") && !r.isNull("elapsedSeconds") ->
                             wearClockLabel(r.optInt("elapsedSeconds"))
                         r.has("roundsCompleted") ->
                             "${r.optInt("roundsCompleted")} r + ${r.optInt("totalReps")} reps"
                         r.has("totalReps") -> "${r.optInt("totalReps")} reps"
+                        (r.optJSONArray("phaseResults")?.length() ?: 0) > 0 -> {
+                            val rows = r.optJSONArray("phaseResults") ?: JSONArray()
+                            val total = (0 until rows.length()).sumOf {
+                                rows.getJSONObject(it).optInt("completedReps",0)
+                            }
+                            "${rows.length()} parciales · $total reps"
+                        }
                         else -> "—"
                     }
                     wodLines += fmt to value
