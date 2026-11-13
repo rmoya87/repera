@@ -185,7 +185,9 @@ public enum CompletedWorkoutEditing {
                     rounds: entry.blockRounds,
                     workSeconds: entry.blockWorkSeconds,
                     restSeconds: entry.blockRestSeconds,
-                    restBetweenRoundsSeconds: entry.blockRestBetweenRoundsSeconds
+                    restBetweenRoundsSeconds: entry.blockRestBetweenRoundsSeconds,
+                    timeCapSeconds: entry.blockTimeCapSeconds,
+                    structure: entry.blockStructure
                 )
                 if kind == .strength {
                     block.exercises = [RoutineExercise(
@@ -386,7 +388,13 @@ public enum CompletedWorkoutEditing {
                 targetReps: performed.reps,
                 targetWeightKg: performed.deficitCm.map(Double.init) ?? performed.weightKg,
                 targetDurationSeconds: performed.durationSeconds,
-                targetRir: performed.rir
+                targetRir: performed.rir,
+                targetPercent1RM: visible.indices.contains(index)
+                    ? visible[index].targetPercent1RM : nil,
+                targetPercent1RMIsMinimum: visible.indices.contains(index)
+                    ? visible[index].targetPercent1RMIsMinimum : false,
+                technique: visible.indices.contains(index)
+                    ? visible[index].technique : nil
             )
             if visible.indices.contains(index) {
                 visible[index] = set

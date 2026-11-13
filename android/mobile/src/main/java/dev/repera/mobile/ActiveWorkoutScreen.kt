@@ -78,6 +78,7 @@ internal fun ActiveWorkoutScreen(
     onLaunchManualClock: (ManualBlockTimerConfig) -> Unit = {},
     loadGuideProvider: (String, Int, Double?) -> LoadGuide? = { _, _, _ -> null },
     onWodMeasuredScore: (Double, String) -> Unit = { _, _ -> },
+    onWodPhaseOutcome: (String, Int, Int?, Int) -> Unit = { _, _, _, _ -> },
 ) {
     var showBlockTimer by remember(workout.id, workout.index) { mutableStateOf(false) }
     var blockWorkOverride by remember(workout.id, workout.index) {
@@ -394,6 +395,7 @@ internal fun ActiveWorkoutScreen(
                                     onTimerAction = onTimerAction, onTimerTick = onTimerTick,
                                     onSave = onWodScore,
                                     onMeasuredScore = onWodMeasuredScore,
+                                    onPhaseOutcome = onWodPhaseOutcome,
                                     onMovement = onWodMovement,
                                     onCompleteBlock = onCompleteWodBlock,
                                     onReviseMovement = onReviseWodMovement,

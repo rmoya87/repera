@@ -155,7 +155,12 @@ object CompletedWorkoutEditing {
             // kg/RIR reetiquetaria la serie a la unidad prescrita del ejercicio.
             l.optString("quantityUnit").takeIf { it == "reps" || it == "meters" || it == "calories" }
                 ?.let { p.put("targetQuantityUnit", it) }
-            if (i < visible.size) visible[i] = p else visible.add(p)
+            if (i < visible.size) {
+                val previous=visible[i]
+                if (previous.has("technique") && !previous.isNull("technique"))
+                    p.put("technique", previous.get("technique"))
+                visible[i] = p
+            } else visible.add(p)
         }
         return JSONArray(visible.map { it })
     }
@@ -305,10 +310,14 @@ object CompletedWorkoutEditing {
             .put("title", entry.optString("blockHeader").ifBlank { "Bloque $n" })
             .put("kind", kind)
         entry.optString("wodFormat").takeIf { it.isNotBlank() }?.let { b.put("wodFormat", it) }
-        val pairs = listOf("blockTimeCapMinutes" to "timeCapMinutes", "blockIntervalSeconds" to "emomIntervalSeconds",
+        val pairs = listOf("blockTimeCapMinutes" to "timeCapMinutes",
+            "blockTimeCapSeconds" to "timeCapSeconds",
+            "blockIntervalSeconds" to "emomIntervalSeconds",
             "blockRounds" to "rounds", "blockWorkSeconds" to "workSeconds", "blockRestSeconds" to "restSeconds",
             "blockRestBetweenRoundsSeconds" to "restBetweenRoundsSeconds")
         for ((from, to) in pairs) if (entry.has(from) && !entry.isNull(from)) b.put(to, entry.get(from))
+        if (entry.has("blockStructure") && !entry.isNull("blockStructure"))
+            b.put("structure", entry.get("blockStructure"))
         return b
     }
 
@@ -397,10 +406,15 @@ object CompletedWorkoutEditing {
                 if (item.unit != null) entry.put("quantityUnit", item.unit) else entry.remove("quantityUnit")
                 entry.put("blockId", blockId).put("blockKind", kind).put("blockHeader", block.optString("title"))
                 for (k in listOf("wodFormat")) if (block.has(k) && !block.isNull(k)) entry.put(k, block.get(k)) else entry.remove(k)
-                val map = listOf("blockTimeCapMinutes" to "timeCapMinutes", "blockIntervalSeconds" to "emomIntervalSeconds",
+                val map = listOf("blockTimeCapMinutes" to "timeCapMinutes",
+                    "blockTimeCapSeconds" to "timeCapSeconds",
+                    "blockIntervalSeconds" to "emomIntervalSeconds",
                     "blockRounds" to "rounds", "blockWorkSeconds" to "workSeconds", "blockRestSeconds" to "restSeconds",
                     "blockRestBetweenRoundsSeconds" to "restBetweenRoundsSeconds")
                 for ((to, from) in map) if (block.has(from) && !block.isNull(from)) entry.put(to, block.get(from)) else entry.remove(to)
+                if (block.has("structure") && !block.isNull("structure"))
+                    entry.put("blockStructure", block.get("structure"))
+                else entry.remove("blockStructure")
                 entry.remove("supersetGroup")
                 // Sets completados: no se reconstruyen al editar la prescripción de un WOD con
                 // resultado GLOBAL (dos hechos distintos que no se contaminan).

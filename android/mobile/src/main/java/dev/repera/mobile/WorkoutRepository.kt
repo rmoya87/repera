@@ -1842,6 +1842,101 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * Swift SessionController.recordWODResult + finishCurrentBlock.
      * 'totalReps' is additional reps after full rounds, NOT an invented sum.
      */
+    /**
+     * Persist an interval/participant outcome without advancing or completing
+     * the WOD. The active block and phase graph are the only allowed scope;
+     * timers NEVER call this method on their own.
+     */
+    @Synchronized fun recordWodPhaseResult(
+        phaseID: String, iteration: Int, participantIndex: Int?,
+        completedReps: Int?, roundsCompleted: Int? = null,
+        elapsedSeconds: Int? = null, movementID: String? = null
+    ): ActiveWorkout {
+        val state = requireState()
+        val session = requireActive(state)
+        val current = session.getJSONArray("exercises")
+            .getJSONObject(session.getInt("currentIndex"))
+        require(current.optString("blockKind") == "wod")
+        val blockID = current.getString("blockId")
+        val blocks = session.optJSONArray("routineBlocks") ?: error("Sin plan")
+        val block = (0 until blocks.length()).map { blocks.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == blockID } ?: error("Bloque no encontrado")
+        val root = block.optJSONObject("structure") ?: error("Sin fases configuradas")
+        fun findPhase(nodes: JSONArray): JSONObject? {
+            for (i in 0 until nodes.length()) {
+                val phase = nodes.getJSONObject(i)
+                if (phase.optString("id") == phaseID) return phase
+                val child = findPhase(phase.optJSONArray("children") ?: JSONArray())
+                if (child != null) return child
+            }
+            return null
+        }
+        val phase = findPhase(root.optJSONArray("phases") ?: JSONArray())
+            ?: error("Fase ajena al entrenamiento")
+        val count = phase.optInt("repeatCount", 1).coerceAtLeast(1)
+        require(iteration in 1..count)
+        val mode = root.optString("collaboration")
+        require(participantIndex == null || (mode.isNotBlank() && mode != "solo" &&
+            participantIndex in 1..2)) { "El resultado individual requiere equipo" }
+        if (movementID != null) {
+            val assigned = phase.optJSONArray("movementIDs") ?: JSONArray()
+            require((0 until assigned.length()).any { assigned.getString(it) == movementID })
+        }
+        val result = dev.repera.domain.WorkoutPhaseResult(
+            phaseID = phaseID, iteration = iteration,
+            participantIndex = participantIndex, movementID = movementID,
+            completedReps = completedReps,
+            roundsCompleted = roundsCompleted, elapsedSeconds = elapsedSeconds
+        )
+        require(result.isValid && listOf(completedReps, roundsCompleted, elapsedSeconds).any { it != null })
+        val existingScores = session.optJSONArray("wodResults") ?: JSONArray()
+        val score = (0 until existingScores.length()).map { existingScores.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == blockID }
+            ?.let { JSONObject(it.toString()) }
+            ?: JSONObject().put("id", blockID).put("format", current.optString("wodFormat"))
+        val oldLogs = score.optJSONArray("phaseResults") ?: JSONArray()
+        val revisedLogs = JSONArray()
+        for (i in 0 until oldLogs.length()) {
+            val existing = oldLogs.getJSONObject(i)
+            val sameKey = existing.optString("phaseID") == phaseID &&
+                existing.optInt("iteration") == iteration &&
+                existing.optInt("participantIndex", -1) == (participantIndex ?: -1) &&
+                existing.optString("movementID") == (movementID ?: "")
+            if (!sameKey) revisedLogs.put(existing)
+            else {
+                // Keep the same row identity for edits, without double counting.
+                revisedLogs.put(WorkoutStructureWire.encodePhaseResult(
+                    result.copy(id = existing.optString("id").ifBlank { result.id })
+                ))
+            }
+        }
+        val found = (0 until revisedLogs.length()).any {
+            val row = revisedLogs.getJSONObject(it)
+            row.optString("phaseID") == phaseID && row.optInt("iteration") == iteration &&
+                row.optInt("participantIndex", -1) == (participantIndex ?: -1) &&
+                row.optString("movementID") == (movementID ?: "")
+        }
+        if (!found) {
+            val originallyExists = (0 until oldLogs.length()).any {
+                val row = oldLogs.getJSONObject(it)
+                row.optString("phaseID") == phaseID && row.optInt("iteration") == iteration &&
+                    row.optInt("participantIndex", -1) == (participantIndex ?: -1) &&
+                    row.optString("movementID") == (movementID ?: "")
+            }
+            if (!originallyExists) revisedLogs.put(WorkoutStructureWire.encodePhaseResult(result))
+        }
+        score.put("phaseResults", revisedLogs)
+        val revised = JSONArray()
+        for (i in 0 until existingScores.length()) {
+            if (existingScores.getJSONObject(i).optString("id") != blockID)
+                revised.put(existingScores.getJSONObject(i))
+        }
+        revised.put(score)
+        session.put("wodResults", revised)
+        save(state)
+        return summarize(session)
+    }
+
     @Synchronized fun recordWodScore(
         roundsCompleted: Int?, additionalReps: Int?, elapsedSeconds: Int?,
         measuredValue: Double? = null, measuredMetric: String? = null
@@ -1895,6 +1990,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (block?.has("wodTemplateId") == true && !block.isNull("wodTemplateId"))
             score.put("wodTemplateId", block.getString("wodTemplateId"))
         val previous = session.optJSONArray("wodResults") ?: JSONArray()
+        val oldScore = (0 until previous.length()).map { previous.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == blockId }
+        oldScore?.optJSONArray("phaseResults")?.let { score.put("phaseResults", it) }
         val revised = JSONArray()
         for (i in 0 until previous.length()) {
             if (previous.getJSONObject(i).optString("id") != blockId)
@@ -2346,7 +2444,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 .put("kind", if (wod) "wod" else "strength").put("exercises", JSONArray()).put("movements", JSONArray())
             val format = dev.repera.domain.ProfessionalWodFormat.normalize(prescribed.optString("wodFormat"))
             if (format.isNotEmpty() && format != "null") block.put("wodFormat", format)
-            listOf("rounds", "timeCapMinutes").forEach { key ->
+            // Preserve v1 composable phases, exact caps and per-set methods
+            // from trainer/MCP prescriptions. These are opt-in JSON fields.
+            listOf("rounds", "timeCapMinutes", "timeCapSeconds", "structure",
+                   "emomIntervalSeconds", "workSeconds", "restSeconds",
+                   "restBetweenRoundsSeconds", "wodNotes").forEach { key ->
                 if (prescribed.has(key) && !prescribed.isNull(key)) block.put(key, prescribed.get(key))
             }
             val entries = prescribed.optJSONArray(if (wod) "movements" else "exercises") ?: JSONArray()
@@ -2380,7 +2482,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     val set = planned.getJSONObject(k)
                     set.put("targetReps", set.optInt("targetReps").coerceAtLeast(0))
                 }
-                val item = JSONObject().put("id", entry.getString("id")).put("exerciseId", resolved.getString("id"))
+                val item = JSONObject().put("id", entry.optString("id").ifBlank {
+                    UUID.randomUUID().toString()
+                }).put("exerciseId", resolved.getString("id"))
                 if (wod) {
                     item.put("name", resolved.getString("name"))
                     listOf("reps", "notes").forEach { key ->
@@ -2394,6 +2498,29 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                             JSONObject().put("id", UUID.randomUUID().toString())
                                 .put("targetReps", entry.optInt("reps").coerceAtLeast(0))
                         )
+                    }
+                    val phaseGraph = prescribed.optJSONObject("structure")
+                        ?.optJSONArray("phases")
+                    if (phaseGraph != null) {
+                        fun inherited(phases: JSONArray): JSONObject? {
+                            for (i in 0 until phases.length()) {
+                                val phase = phases.getJSONObject(i)
+                                val child = inherited(phase.optJSONArray("children") ?: JSONArray())
+                                if (child != null) return child
+                                val assigned = phase.optJSONArray("movementIDs") ?: JSONArray()
+                                if ((0 until assigned.length()).any {
+                                    assigned.optString(it) == item.getString("id")
+                                }) return phase.optJSONObject("technique")
+                            }
+                            return null
+                        }
+                        val technique = inherited(phaseGraph)
+                        if (technique != null) {
+                            for (i in 0 until planned.length()) {
+                                val set = planned.getJSONObject(i)
+                                if (!set.has("technique")) set.put("technique", technique)
+                            }
+                        }
                     }
                     item.put("plannedSets", planned)
                     block.getJSONArray("exercises").put(item)
@@ -4207,11 +4334,16 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val format = WodFormat.fromWire(current.optString("wodFormat"))
         val wod = if (current.optString("blockKind") == "wod" && format != null) {
             val moves = block?.optJSONArray("movements") ?: JSONArray()
-            val workPhase = block?.optJSONObject("structure")?.optJSONArray("phases")
+            val anyPhase = block?.optJSONObject("structure")?.optJSONArray("phases")
                 ?.let { phases ->
                     (0 until phases.length()).map { phases.getJSONObject(it) }
                         .firstOrNull { it.optString("kind") == "work" && it.optInt("repeatCount") > 1 }
+                        ?: (0 until phases.length()).map { phases.getJSONObject(it) }
+                            .firstOrNull { it.optString("kind") != "rest" }
                 }
+            val workPhase = anyPhase?.takeIf {
+                it.optString("kind") == "work" && it.optInt("repeatCount") > 1
+            }
             WodExecution(
                 format = format.wireName,
                 capture = format.capture.name,
@@ -4223,7 +4355,19 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     ?.takeIf { it.isNotBlank() },
                 repeatedWorkSeconds = workPhase?.takeIf { it.has("workSeconds") }?.optInt("workSeconds"),
                 repeatedRestSeconds = workPhase?.takeIf { it.has("restSeconds") }?.optInt("restSeconds"),
-                repeatCount = workPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount"),
+                repeatCount = workPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount")
+                    ?: anyPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount"),
+                phaseID = anyPhase?.optString("id")?.takeIf { it.isNotBlank() },
+                collaboration = block?.optJSONObject("structure")?.optString("collaboration")
+                    ?.takeIf { it.isNotBlank() },
+                phaseResults = session.optJSONArray("wodResults")?.let { scores ->
+                    val previous = (0 until scores.length()).map { scores.getJSONObject(it) }
+                        .firstOrNull { it.optString("id") == block?.optString("id") }
+                    val logs = previous?.optJSONArray("phaseResults") ?: JSONArray()
+                    (0 until logs.length()).mapNotNull { index ->
+                        WorkoutStructureWire.decodePhaseResult(logs.getJSONObject(index))
+                    }
+                } ?: emptyList(),
                 intervalSeconds = block?.optInt("emomIntervalSeconds")?.takeIf { block.has("emomIntervalSeconds") },
                 rounds = block?.optInt("rounds")?.takeIf { block.has("rounds") },
                 workSeconds = block?.optInt("workSeconds")?.takeIf { block.has("workSeconds") },
@@ -4430,7 +4574,10 @@ data class WodExecution(
     val plannedIntervals: Int? = null,
     val repeatedWorkSeconds: Int? = null,
     val repeatedRestSeconds: Int? = null,
-    val repeatCount: Int? = null
+    val repeatCount: Int? = null,
+    val phaseID: String? = null,
+    val collaboration: String? = null,
+    val phaseResults: List<dev.repera.domain.WorkoutPhaseResult> = emptyList()
 )
 
 data class WodRecordedMovement(val id: String, val name: String, val intervalIndex: Int, val quantity: Int, val weightKg: Double?, val quantityUnit: String?)

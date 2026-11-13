@@ -1620,7 +1620,9 @@ final class ReperaStore: NSObject {
         guard var session = state.activeSession else { return }
         session.wodResults.removeAll { $0.id == result.id }
         session.wodResults.append(result)
-        if result.totalReps != nil || result.elapsedSeconds != nil {
+        let hasFinalScore = result.totalReps != nil || result.elapsedSeconds != nil ||
+            result.measuredValue != nil || result.roundsCompleted != nil
+        if hasFinalScore {
             for i in session.exercises.indices where session.exercises[i].blockId == result.id {
                 session.exercises[i].isCompleted = true
             }
@@ -1639,7 +1641,8 @@ final class ReperaStore: NSObject {
             "result": "success"
         ]
         if let format { params["wod_format"] = format }
-        ReperaAnalytics.track(.workoutBlockCompleted, parameters: params)
+        // A partial interval or athlete update is not a finished workout.
+        if hasFinalScore { ReperaAnalytics.track(.workoutBlockCompleted, parameters: params) }
     }
 
     /// Calcula y opcionalmente presenta la valoración post-entreno.

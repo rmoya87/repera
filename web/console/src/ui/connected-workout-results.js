@@ -18,7 +18,14 @@ export function renderSharedWorkoutResults({client,rows=[],esc}) {
   return '<article class="connected-plan"><div class="connected-plan-top"><h3>'+
    esc(row.title||'Entrenamiento')+'</h3><span class="connected-pill">'+
    esc(String(row.finished_at||'').slice(0,10))+'</span></div>'+exercises+
-   (wod.length?'<p>'+esc(wod.length+' resultados WOD')+'</p>':'')+
+   (wod.length?'<p>'+esc(wod.map(item=>{
+      if(item.measuredValue!=null&&Number.isFinite(Number(item.measuredValue))){
+       const unit={loadKg:'kg',calories:'kcal',distanceMeters:'m'}[item.measuredMetric]||'';
+       return Number(item.measuredValue).toLocaleString('es-ES')+' '+unit;
+      }
+      const phases=Array.isArray(item.phaseResults)?item.phaseResults:[];
+      return phases.length?phases.length+' parciales registrados':'Resultado WOD';
+    }).join(' · '))+'</p>':'')+
    '</article>';
  }).join('');
  return '<section class="connected-card" style="margin-top:22px"><div class="connected-panel-header"><div><span class="connected-eyebrow">Resultados autorizados</span><h2>'+

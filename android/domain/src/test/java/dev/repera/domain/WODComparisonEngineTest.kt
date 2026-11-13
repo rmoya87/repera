@@ -65,4 +65,19 @@ class WODComparisonEngineTest {
         )?.improvement)
         assertNull(WODComparisonEngine.compare(timed(1200), timed(900)))
     }
+    @Test fun typedLoadComparisonKeepsHalfKilogramDifferences() {
+        fun load(value:Double, signature:String="same")=ComparableWodResult(
+            format="maxEffort",prescriptionFingerprint=signature,isRx=true,
+            scalingFingerprint="",timeCapSeconds=600,
+            measuredMetric="loadKg",measuredValue=value
+        )
+        val compared=WODComparisonEngine.compareMeasurement(load(87.5),load(90.0))
+        assertEquals(2.5,compared?.improvement)
+        assertEquals("kg",compared?.unit)
+        assertNull(WODComparisonEngine.compareMeasurement(load(87.5),load(90.0,"different")))
+        assertNull(WODComparisonEngine.compareMeasurement(
+            load(87.5),load(90.0).copy(measuredMetric="distanceMeters")
+        ))
+    }
+
 }

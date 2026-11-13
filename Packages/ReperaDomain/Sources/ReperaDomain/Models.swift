@@ -766,6 +766,7 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
     public var targetPercent1RMIsMinimum: Bool
     /// Objetivo de RIR para esta serie (nil = sin definir).
     public var targetRir: Double?
+    public var technique: WorkoutStrengthTechnique?
 
     public init(
         id: UUID = UUID(),
@@ -774,7 +775,8 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         targetDurationSeconds: Int? = nil,
         targetRir: Double? = nil,
         targetPercent1RM: Double? = nil,
-        targetPercent1RMIsMinimum: Bool = false
+        targetPercent1RMIsMinimum: Bool = false,
+        technique: WorkoutStrengthTechnique? = nil
     ) {
         self.id = id
         self.targetReps = targetReps
@@ -783,10 +785,11 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         self.targetRir = targetRir
         self.targetPercent1RM = targetPercent1RM
         self.targetPercent1RMIsMinimum = targetPercent1RMIsMinimum
+        self.technique = technique
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, targetReps, targetDurationSeconds, targetWeightKg, targetRir, targetPercent1RM, targetPercent1RMIsMinimum
+        case id, targetReps, targetDurationSeconds, targetWeightKg, targetRir, targetPercent1RM, targetPercent1RMIsMinimum, technique
     }
 
     public init(from decoder: Decoder) throws {
@@ -798,11 +801,12 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         targetRir = try c.decodeIfPresent(Double.self, forKey: .targetRir)
         targetPercent1RM = try c.decodeIfPresent(Double.self, forKey: .targetPercent1RM)
         targetPercent1RMIsMinimum = try c.decodeIfPresent(Bool.self, forKey: .targetPercent1RMIsMinimum) ?? false
+        technique = try c.decodeIfPresent(WorkoutStrengthTechnique.self, forKey: .technique)
     }
 
     /// Copia con nuevo `id` (para insertar en otra rutina).
     public func duplicatingContent() -> PlannedSet {
-        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetDurationSeconds: targetDurationSeconds, targetRir: targetRir, targetPercent1RM: targetPercent1RM, targetPercent1RMIsMinimum: targetPercent1RMIsMinimum)
+        PlannedSet(targetReps: targetReps, targetWeightKg: targetWeightKg, targetDurationSeconds: targetDurationSeconds, targetRir: targetRir, targetPercent1RM: targetPercent1RM, targetPercent1RMIsMinimum: targetPercent1RMIsMinimum, technique: technique)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -814,6 +818,7 @@ public struct PlannedSet: Identifiable, Codable, Sendable, Hashable {
         try c.encodeIfPresent(targetRir, forKey: .targetRir)
         try c.encodeIfPresent(targetPercent1RM, forKey: .targetPercent1RM)
         if targetPercent1RMIsMinimum { try c.encode(true, forKey: .targetPercent1RMIsMinimum) }
+        try c.encodeIfPresent(technique, forKey: .technique)
     }
 }
 
@@ -1231,6 +1236,8 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
     /// A load/distance/calorie Max Effort is not a repetition count.
     public var measuredValue: Double?
     public var measuredMetric: WorkoutResultMetric?
+    /// Per-interval and per-athlete results. Empty for legacy WOD results.
+    public var phaseResults: [WorkoutPhaseResult]?
 
     public init(
         id: UUID,
@@ -1241,7 +1248,8 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         wodTemplateId: String? = nil,
         isRx: Bool? = nil,
         measuredValue: Double? = nil,
-        measuredMetric: WorkoutResultMetric? = nil
+        measuredMetric: WorkoutResultMetric? = nil,
+        phaseResults: [WorkoutPhaseResult]? = nil
     ) {
         self.id = id
         self.format = format
@@ -1252,6 +1260,16 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         self.isRx = isRx
         self.measuredValue = measuredValue
         self.measuredMetric = measuredMetric
+        self.phaseResults = phaseResults?.filter(\.isValid)
+    }
+
+    public var totalRecordedPhaseReps: Int {
+        (phaseResults ?? []).reduce(0) { $0 + ($1.completedReps ?? 0) }
+    }
+
+    public func contribution(for participantIndex: Int) -> Int {
+        (phaseResults ?? []).filter { $0.participantIndex == participantIndex }
+            .reduce(0) { $0 + ($1.completedReps ?? 0) }
     }
 
     public var summaryLabel: String {
@@ -1281,6 +1299,15 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         }
         if let roundsCompleted {
             return "\(roundsCompleted) rondas"
+        }
+        if let rows = phaseResults, !rows.isEmpty {
+            let total = rows.reduce(0) { $0 + ($1.completedReps ?? 0) }
+            let labels = rows.compactMap(\.participantIndex)
+            if !labels.isEmpty {
+                let one = contribution(for: 1), two = contribution(for: 2)
+                return "A1 \(one) · A2 \(two) reps"
+            }
+            return "\(rows.count) parciales · \(total) reps"
         }
         return "—"
     }

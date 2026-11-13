@@ -28,6 +28,20 @@ const numeric=(v,label,min,max,optional=false)=>{
  if(!Number.isFinite(x)||x<min||x>max)throw Error(label+' debe estar entre '+min+' y '+max);
  return x;
 };
+const SET_METHODS=new Set(['standard','superset','triset','giantSet','cluster','dropSet','restPause','tempo','isometric']);
+function validateTechnique(technique){
+ if(!technique||!SET_METHODS.has(technique.method))throw Error('Método de fuerza no válido');
+ if(technique.tempo!=null&&!/^[0-9Xx]{4}$/.test(technique.tempo))throw Error('Tempo no válido');
+ for(const key of ['pauseSeconds','intraSetRestSeconds','clusterReps']){
+  const v=technique[key], min=key==='clusterReps'?1:0;
+  if(v!=null&&(!Number.isInteger(v)||v<min||v>300))throw Error('Prescripción de fuerza no válida');
+ }
+ if(technique.dropPercentages!=null&&(!Array.isArray(technique.dropPercentages)||
+    technique.dropPercentages.length>8||
+    technique.dropPercentages.some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0||v>100)))
+   throw Error('Reducciones de peso no válidas');
+ return technique;
+}
 const PHASE_KINDS=new Set(['work','rest','buyIn','main','cashOut']);
 const SECTION_NAMES=new Set(['warmUp','strength','skill','metcon','accessory','coolDown']);
 const TEAM_MODES=new Set(['solo','youGoIGo','synchronized','sharedReps','together']);
@@ -41,6 +55,7 @@ function validateWorkoutStructure(structure){
  const phase=(p,depth)=>{
   if(!p||depth>2||!PHASE_KINDS.has(p.kind)||typeof p.title!=='string'||p.title.length>120)
    throw Error('Fase de entrenamiento no válida');
+  if(p.technique!=null)validateTechnique(p.technique);
   if(!Array.isArray(p.movementIDs)||p.movementIDs.length>50||
      p.movementIDs.some(id=>typeof id!=='string'))throw Error('Ejercicios de fase no válidos');
   for(const key of ['repeatCount','workSeconds','restSeconds']){
@@ -77,7 +92,8 @@ export function buildPrescription(draft,catalog){
     e.plannedSets=entry.plannedSets.map(set=>({
      id:set.id||uuid(),targetReps:numeric(set.targetReps,'Repeticiones',1,9999),
      targetWeightKg:numeric(set.targetWeightKg,'Carga (kg)',0,2000,true),
-     targetRir:numeric(set.targetRir,'RIR',0,10,true)
+     targetRir:numeric(set.targetRir,'RIR',0,10,true),
+     ...(set.technique?{technique:validateTechnique(set.technique)}:{})
     }));
     if(e.plannedSets.some(set=>!Number.isInteger(set.targetReps)))throw Error('Repeticiones de serie no válidas');
    }else{

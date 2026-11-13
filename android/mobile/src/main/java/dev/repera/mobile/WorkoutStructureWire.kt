@@ -6,6 +6,10 @@ import dev.repera.domain.WorkoutPhaseKind
 import dev.repera.domain.WorkoutResultMetric
 import dev.repera.domain.WorkoutSection
 import dev.repera.domain.WorkoutStructure
+import dev.repera.domain.WorkoutStrengthTechnique
+import dev.repera.domain.WorkoutSetMethod
+import dev.repera.domain.WorkoutPhaseResult
+import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -31,8 +35,66 @@ internal object WorkoutStructureWire {
             value.workSeconds?.let { put("workSeconds", it) }
             value.restSeconds?.let { put("restSeconds", it) }
             value.notes?.let { put("notes", it) }
+            value.technique?.let { put("technique", encodeTechnique(it)) }
             put("children", JSONArray().apply { value.children.forEach { put(phaseJson(it)) } })
         }
+
+    fun encodeTechnique(value: WorkoutStrengthTechnique): JSONObject = JSONObject()
+        .put("method", value.method.name)
+        .apply {
+            value.tempo?.let { put("tempo", it) }
+            value.pauseSeconds?.let { put("pauseSeconds", it) }
+            value.intraSetRestSeconds?.let { put("intraSetRestSeconds", it) }
+            value.clusterReps?.let { put("clusterReps", it) }
+            put("dropPercentages", JSONArray(value.dropPercentages))
+        }
+
+    private fun decodeTechnique(raw: JSONObject?): WorkoutStrengthTechnique? = runCatching {
+        val data = raw ?: return null
+        val drops = data.optJSONArray("dropPercentages") ?: JSONArray()
+        val technique = WorkoutStrengthTechnique(
+            method = WorkoutSetMethod.valueOf(data.getString("method")),
+            tempo = data.optString("tempo").takeIf { it.isNotBlank() },
+            pauseSeconds = data.optInt("pauseSeconds").takeIf { data.has("pauseSeconds") },
+            intraSetRestSeconds = data.optInt("intraSetRestSeconds").takeIf { data.has("intraSetRestSeconds") },
+            clusterReps = data.optInt("clusterReps").takeIf { data.has("clusterReps") },
+            dropPercentages = (0 until drops.length()).map { drops.getDouble(it) }
+        )
+        technique.takeIf { it.isValid }
+    }.getOrNull()
+
+    fun encodePhaseResult(value: WorkoutPhaseResult): JSONObject {
+        require(value.isValid)
+        return JSONObject().put("id", value.id).put("phaseID", value.phaseID)
+            .put("iteration", value.iteration).apply {
+                value.participantIndex?.let { put("participantIndex", it) }
+                value.movementID?.let { put("movementID", it) }
+                value.completedReps?.let { put("completedReps", it) }
+                value.roundsCompleted?.let { put("roundsCompleted", it) }
+                value.elapsedSeconds?.let { put("elapsedSeconds", it) }
+                value.measuredValue?.let { put("measuredValue", it) }
+                value.measuredMetric?.let { put("measuredMetric", it.name) }
+                value.notes?.let { put("notes", it) }
+            }
+    }
+
+    fun decodePhaseResult(raw: JSONObject): WorkoutPhaseResult? = runCatching {
+        val result = WorkoutPhaseResult(
+            id = raw.optString("id").takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString(),
+            phaseID = raw.getString("phaseID"),
+            iteration = raw.getInt("iteration"),
+            participantIndex = raw.optInt("participantIndex").takeIf { raw.has("participantIndex") },
+            movementID = raw.optString("movementID").takeIf { it.isNotBlank() },
+            completedReps = raw.optInt("completedReps").takeIf { raw.has("completedReps") },
+            roundsCompleted = raw.optInt("roundsCompleted").takeIf { raw.has("roundsCompleted") },
+            elapsedSeconds = raw.optInt("elapsedSeconds").takeIf { raw.has("elapsedSeconds") },
+            measuredValue = raw.optDouble("measuredValue").takeIf { raw.has("measuredValue") },
+            measuredMetric = raw.optString("measuredMetric").takeIf { it.isNotBlank() }
+                ?.let { dev.repera.domain.WorkoutResultMetric.valueOf(it) },
+            notes = raw.optString("notes").takeIf { it.isNotBlank() }
+        )
+        result.takeIf { it.isValid }
+    }.getOrNull()
 
     fun decode(raw: JSONObject?): WorkoutStructure? = runCatching {
         val source = raw ?: return null
@@ -67,6 +129,7 @@ internal object WorkoutStructureWire {
             workSeconds = raw.optInt("workSeconds").takeIf { raw.has("workSeconds") && it in 1..86400 },
             restSeconds = raw.optInt("restSeconds").takeIf { raw.has("restSeconds") && it in 0..86400 },
             notes = raw.optString("notes").takeIf { it.isNotEmpty() },
+            technique = decodeTechnique(raw.optJSONObject("technique")),
             children = (0 until children.length()).map { decodePhase(children.getJSONObject(it), depth + 1) }
         )
     }

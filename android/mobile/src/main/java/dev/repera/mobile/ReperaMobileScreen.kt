@@ -338,7 +338,8 @@ fun ReperaMobileScreen(
     deletingAccount: Boolean = false,
     accountDeleteError: String? = null,
     onDismissAccountDeleteError: () -> Unit = {},
-    onWodMeasuredScore: (Double, String) -> Unit = { _, _ -> }
+    onWodMeasuredScore: (Double, String) -> Unit = { _, _ -> },
+    onWodPhaseOutcome: (String, Int, Int?, Int) -> Unit = { _, _, _, _ -> }
 ) {
     ReperaTheme {
         if (!isAuthenticated) {
@@ -1361,7 +1362,8 @@ fun ReperaMobileScreen(
                                 navController.navigate("reloj")
                             },
                             loadGuideProvider = loadGuideProvider,
-                            onWodMeasuredScore = onWodMeasuredScore
+                            onWodMeasuredScore = onWodMeasuredScore,
+                            onWodPhaseOutcome = onWodPhaseOutcome
                         )
                     }
                 }

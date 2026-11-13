@@ -575,6 +575,7 @@ internal fun WodScoreCard(
     effortUnit: String = "rir",
     embedded: Boolean = false,
     onMeasuredScore: (Double, String) -> Unit = { _, _ -> },
+    onPhaseOutcome: (String, Int, Int?, Int) -> Unit = { _, _, _, _ -> },
     loadGuideProvider: (String, Int, Double?) -> LoadGuide? = { _, _, _ -> null },
 ) {
     val wod = active.wod ?: return
@@ -898,6 +899,61 @@ internal fun WodScoreCard(
                     label = if (wod.expectsRounds) "Repeticiones adicionales" else "Repeticiones totales",
                     allowsDecimal = false
                 )
+            }
+            // Partial scores are explicit and never finish the block.
+            val phaseID = wod.phaseID
+            if (!phaseID.isNullOrBlank()) {
+                val intervalCount = (wod.repeatCount ?: 1).coerceIn(1, 200)
+                val team = !wod.collaboration.isNullOrBlank() && wod.collaboration != "solo"
+                var period by rememberSaveable(active.id, phaseID) { mutableStateOf(1) }
+                var participant by rememberSaveable(active.id, phaseID) { mutableStateOf(1) }
+                val currentParticipant = if (team) participant else null
+                val saved = wod.phaseResults.firstOrNull {
+                    it.phaseID == phaseID && it.iteration == period &&
+                        it.participantIndex == currentParticipant && it.movementID == null
+                }
+                var periodReps by rememberSaveable(active.id, phaseID, period, currentParticipant) {
+                    mutableStateOf(saved?.completedReps?.toString() ?: "")
+                }
+                Text(if (team) "Resultado por atleta y fase" else "Resultado por intervalo",
+                    style = MaterialTheme.typography.titleSmall)
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { period = (period - 1).coerceAtLeast(1) },
+                        enabled = period > 1 && !busy) { Text("−") }
+                    Text("Intervalo $period/$intervalCount",
+                        style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(onClick = { period = (period + 1).coerceAtMost(intervalCount) },
+                        enabled = period < intervalCount && !busy) { Text("+") }
+                }
+                if (team) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(1, 2).forEach { number ->
+                            OutlinedButton(onClick = { participant = number },
+                                enabled = !busy && participant != number) {
+                                Text("Atleta $number")
+                            }
+                        }
+                    }
+                }
+                ReperaNumericField(
+                    value = periodReps,
+                    onValueChange = { periodReps = it.filter(Char::isDigit) },
+                    label = if (team) "Repeticiones del atleta" else "Repeticiones del intervalo",
+                    allowsDecimal = false
+                )
+                OutlinedButton(
+                    onClick = {
+                        val count = periodReps.toIntOrNull()
+                        if (count != null) onPhaseOutcome(phaseID, period, currentParticipant, count)
+                    },
+                    enabled = !busy && periodReps.toIntOrNull()?.let { it in 0..100000 } == true
+                ) { Text("Guardar parcial") }
+                saved?.let {
+                    Text("Registrado: ${it.completedReps ?: 0} reps",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             if (!perMovement) Button(
                 enabled = !busy && valid,

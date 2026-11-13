@@ -76,18 +76,13 @@ function movementMatchesFilter(m,filter='all'){
 }
 // Formatos alineados con WODFormat de ReperaDomain (apps). «none» = Sin formato (como PlanView).
 const FORMATS={
- none:'Sin formato',
- sets:'Series (fuerza)',
- amrap:'AMRAP',
- emom:'EMOM / Every',
- tabata:'Tabata',
- rft:'RFT / For Time',
- fortime:'For Time',
- circuit:'Circuito',
- chipper:'Chipper',
- every:'Every / Intervalos'
+ none:'Sin formato',sets:'Series (fuerza)',strength:'Fuerza / Skill',
+ amrap:'AMRAP',emom:'EMOM / Every',tabata:'Tabata',rft:'RFT / For Time',
+ fortime:'For Time',circuit:'Circuito',chipper:'Chipper',every:'Every / Intervalos',
+ deathBy:'Muerte por',ladder:'Escalera',partner:'Partner',buyInCashOut:'Buy-in / Cash-out',
+ roundsForQuality:'Rounds for Quality',maxEffort:'Max Effort',afap:'AFAP'
 };
-const WOD_FORMAT_KEYS=new Set(['amrap','emom','tabata','rft','fortime','circuit','chipper','every']);
+const WOD_FORMAT_KEYS=new Set(['amrap','emom','tabata','rft','fortime','circuit','chipper','every','strength','deathBy','ladder','partner','buyInCashOut','roundsForQuality','maxEffort','afap']);
 function normalizeFormat(f){return f==null||f===''||f==='none'?'none':f;}
 function isWodFormat(f){return WOD_FORMAT_KEYS.has(normalizeFormat(f));}
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
@@ -233,7 +228,7 @@ function movementMarkup(x,i){
  const kind=free?'free':'exercise';
  const subtitle=free?'Movimiento libre':(known?.group||'Movimiento personalizado');
  const art=free?`<span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">＋</span>`:thumb(known||{art:null});
- return `<article class="editor-exercise ${free?'is-free':''}" data-editor-exercise data-origin-id="${escapeHTML(x.originId||'')}" data-id="${escapeHTML(known?.id||x.id||'custom')}" data-name="${escapeHTML(x.name)}" data-item-kind="${kind}"><div class="editor-exercise-head">${art}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(subtitle)}</small></div>${removeBtn(i,`Eliminar ${x.name||'ejercicio'}`)}</div><div class="editor-values">
+ return `<article class="editor-exercise ${free?'is-free':''}" data-editor-exercise data-origin-id="${escapeHTML(x.originId||'')}" data-planned-sets="${escapeHTML(JSON.stringify(x.plannedSets||null))}" data-id="${escapeHTML(known?.id||x.id||'custom')}" data-name="${escapeHTML(x.name)}" data-item-kind="${kind}"><div class="editor-exercise-head">${art}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(subtitle)}</small></div>${removeBtn(i,`Eliminar ${x.name||'ejercicio'}`)}</div><div class="editor-values">
  ${num(x.sets??3,1,50,'Series','sets')}${num(x.reps??8,0,1000,'Reps','reps')}${num(x.rir??2,0,10,'RIR','rir')}
  ${num(x.weight??0,0,1000,'Kg','weight',.5)}${num(x.duration??0,0,3600,'Seg.','duration')}
  </div><label class="editor-notes">Indicaciones<input data-editor-field="notes" value="${escapeHTML(x.notes||'')}" maxlength="400" placeholder="Tempo, alternativa…"></label></article>`;
@@ -358,8 +353,115 @@ function panelForBlock(i,exercises){
  return null;
 }
 
+
+const ADVANCED_PHASE_KINDS={work:'Trabajo',rest:'Descanso',buyIn:'Buy-in',main:'Principal',cashOut:'Cash-out'};
+const ADVANCED_TEAM={solo:'Individual',youGoIGo:'Alternando',synchronized:'Sincronizado',sharedReps:'Reps compartidas',together:'Juntos'};
+const ADVANCED_METHOD={standard:'Normal',superset:'Superserie',triset:'Triserie',giantSet:'Giant set',cluster:'Cluster',dropSet:'Drop set',restPause:'Rest-pause',tempo:'Tempo',isometric:'Isométrico'};
+const ADVANCED_SCORE={totalReps:'Repeticiones',elapsedSeconds:'Tiempo',loadKg:'Carga kg',calories:'Calorías',distanceMeters:'Distancia m'};
+function advancedSelect(choices,current,field){
+ return '<select data-advanced-field="'+field+'">'+Object.entries(choices).map(([k,v])=>
+  '<option value="'+escapeHTML(k)+'"'+(k===current?' selected':'')+'>'+escapeHTML(v)+'</option>').join('')+'</select>';
+}
+function advancedInput(name,key,val,kind='text'){
+ return '<label class="connected-field">'+name+
+  '<input type="'+kind+'" data-advanced-field="'+key+'" value="'+escapeHTML(val??'')+'"></label>';
+}
+function advancedPhaseRows(phases,exercises,level=0,parentID=''){
+ return (phases||[]).map(p=>{
+  const id=p.id||'';
+  const method=p.technique||{};
+  const assignment=(exercises||[]).filter(e=>e.originId).map(e=>
+   '<label class="editor-phase-reference"><input data-advanced-assignment="'+escapeHTML(e.originId)+'" type="checkbox"'+
+    ((p.movementIDs||[]).includes(e.originId)?' checked':'')+'> '+escapeHTML(e.name||'Ejercicio')+'</label>').join('');
+  const row='<div class="editor-block-panel" data-advanced-phase data-advanced-phase-id="'+escapeHTML(id)+
+   '" data-advanced-phase-parent="'+escapeHTML(parentID)+'" data-advanced-phase-level="'+level+'">'+
+   '<div class="editor-picker-head"><strong>'+ (level?'Subfase':'Fase') +'</strong><span class="editor-template-actions">'+
+   '<button type="button" data-editor-action="advanced-up" data-phase-id="'+escapeHTML(id)+'" aria-label="Subir fase">↑</button>'+
+   '<button type="button" data-editor-action="advanced-down" data-phase-id="'+escapeHTML(id)+'" aria-label="Bajar fase">↓</button>'+
+   '<button type="button" data-editor-action="advanced-delete" data-phase-id="'+escapeHTML(id)+'" aria-label="Eliminar fase">×</button></span></div>'+
+   advancedInput('Nombre','title',p.title||'Trabajo principal')+
+   '<label class="connected-field">Tipo'+advancedSelect(ADVANCED_PHASE_KINDS,p.kind||'main','kind')+'</label>'+
+   '<div class="editor-block-settings">'+
+    advancedInput('Repeticiones','repeatCount',p.repeatCount,'number')+
+    advancedInput('Trabajo (s)','workSeconds',p.workSeconds,'number')+
+    advancedInput('Descanso (s)','restSeconds',p.restSeconds,'number')+
+   '</div><label class="connected-field">Método de fuerza'+
+    advancedSelect(ADVANCED_METHOD,method.method||'standard','method')+'</label>'+
+   '<div class="editor-block-settings">'+
+    advancedInput('Tempo','tempo',method.tempo)+
+    advancedInput('Pausa (s)','pauseSeconds',method.pauseSeconds,'number')+
+    advancedInput('Descanso intra-serie (s)','intraSetRestSeconds',method.intraSetRestSeconds,'number')+
+    advancedInput('Cluster reps','clusterReps',method.clusterReps,'number')+
+    advancedInput('Drop porcentajes','dropPercentages',(method.dropPercentages||[]).join(','))+
+   '</div><p class="connected-hint">Ejercicios de esta fase</p>'+
+   '<div class="editor-block-settings">'+(assignment||'<small>Añade ejercicios antes de asignarlos</small>')+'</div>'+
+   advancedInput('Notas','notes',p.notes)+
+   (level===0?'<button type="button" data-editor-action="advanced-subphase" data-phase-id="'+escapeHTML(id)+'">+ Añadir subfase</button>':'')+
+   '</div>';
+  return row+(level<1?advancedPhaseRows(p.children||[],exercises,level+1,id):'');
+ }).join('');
+}
+function advancedStructureMarkup(block){
+ const value=block.structure||{version:1,phases:[]};
+ const summary=(value.phases||[]).length;
+ return '<details class="editor-advanced" data-advanced-structure>'+
+  '<summary>Estructura avanzada · '+summary+' fases</summary>'+
+  '<div class="editor-block-settings">'+
+   '<label class="connected-field">Equipo'+advancedSelect(ADVANCED_TEAM,value.collaboration||'solo','collaboration')+'</label>'+
+   '<label class="connected-field">Resultado'+advancedSelect(ADVANCED_SCORE,value.resultMetric||'totalReps','resultMetric')+'</label>'+
+  '</div>'+advancedPhaseRows(value.phases||[],block.exercises||[])+
+  '<button type="button" class="editor-add" data-editor-action="advanced-add">+ Añadir fase</button>'+
+  '</details>';
+}
+function readAdvancedStructure(block){
+ let source=null;
+ try{source=JSON.parse(block.dataset.workoutStructure||'null');}catch{}
+ const region=block.querySelector('[data-advanced-structure]');
+ if(!region)return source;
+ const get=(node,k)=>node.querySelector('[data-advanced-field="'+k+'"]')?.value;
+ const number=(node,k)=>{const raw=get(node,k);return raw===undefined||raw===''?null:Number(raw);};
+ const rows=[...region.querySelectorAll('[data-advanced-phase]')].map(node=>{
+  const techniqueMethod=get(node,'method')||'standard';
+  const drop=(get(node,'dropPercentages')||'').split(',').map(x=>x.trim()).filter(Boolean).map(Number);
+  const technique=techniqueMethod==='standard'?null:{
+   method:techniqueMethod,dropPercentages:drop,
+   ...Object.fromEntries(['tempo','pauseSeconds','intraSetRestSeconds','clusterReps'].map(k=>[
+    k,k==='tempo'?get(node,k):number(node,k)
+   ]).filter(([,v])=>v!==null&&v!==''&&v!==undefined))};
+  return {id:node.dataset.advancedPhaseId,parent:node.dataset.advancedPhaseParent||'',
+   kind:get(node,'kind')||'main',title:get(node,'title')||'Trabajo principal',
+   movementIDs:[...node.querySelectorAll('[data-advanced-assignment]:checked')].map(el=>el.dataset.advancedAssignment),
+   ...Object.fromEntries(['repeatCount','workSeconds','restSeconds'].map(k=>[k,number(node,k)]).filter(([,v])=>v!==null)),
+   ...(get(node,'notes')?{notes:get(node,'notes')}:{}),
+   ...(technique?{technique}:{}),children:[]};
+ });
+ const byID=new Map(rows.map(row=>[row.id,row]));
+ const roots=[];
+ for(const row of rows){
+  if(row.parent&&byID.has(row.parent))byID.get(row.parent).children.push(row);
+  else roots.push(row);
+ }
+ const clean=arr=>arr.map(({parent,...rest})=>({...rest,children:clean(rest.children||[])}));
+ const collaboration=get(region,'collaboration')||'solo';
+ const resultMetric=get(region,'resultMetric')||'totalReps';
+ if(!source&&!roots.length&&collaboration==='solo'&&resultMetric==='totalReps')
+  return null;
+ return {...(source||{}),version:1,
+   collaboration,resultMetric,phases:clean(roots)};
+}
+const newEditorID=()=>globalThis.crypto?.randomUUID?.()||
+ 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+  const n=Math.floor(Math.random()*16);return (c==='x'?n:(n&3|8)).toString(16);
+ });
 export function editorMarkup(value=emptyPrescription(),{meta=null,showMeta=false}={}){
- const blocks=Array.isArray(value?.blocks)?value.blocks:[];
+ const normalizePhases=items=>(items||[]).map(p=>({
+  ...p,id:p.id||newEditorID(),children:normalizePhases(p.children||[])
+ }));
+ const blocks=Array.isArray(value?.blocks)?value.blocks.map(b=>({
+  ...b,
+  exercises:(b.exercises||[]).map(e=>({...e,originId:e.originId||newEditorID()})),
+  ...(b.structure?{structure:{...b.structure,phases:normalizePhases(b.structure.phases)}}:{})
+ })):[];
  const open=editorUI.pickerBlock;
  const panel=editorUI.panel;
  const metaHTML=showMeta?sessionMetaMarkup(meta||visualSessionMeta(value)): '';
@@ -385,6 +487,7 @@ export function editorMarkup(value=emptyPrescription(),{meta=null,showMeta=false
  <div class="editor-block-format-row"><span>Formato</span>${select(fmt,FORMATS,'format')}<input type="hidden" data-editor-field="kind" value="${escapeHTML(b.kind||'strength')}"></div>
  ${showCaps?`<div class="editor-block-settings">${num(b.rounds??1,1,100,'Rondas','rounds')}${num(b.timeCap??0,0,720,'Límite (min)','timeCap')}</div>`
   :`<input type="hidden" data-editor-field="rounds" value="${integer(b.rounds,1)}"><input type="hidden" data-editor-field="timeCap" value="${integer(b.timeCap,0)}">`}
+ ${advancedStructureMarkup(b)}
  <div class="editor-exercises">${(b.exercises||[]).map(movementMarkup).join('')||(active==='library'||active==='free'?'':'<p class="editor-block-empty">Añade ejercicios, descanso o movimiento libre.</p>')}</div>
  ${blockAddBar(i)}
  ${panelHTML}
@@ -407,13 +510,17 @@ export function readPrescription(form){
   else if(format==='none'||format==='sets')kind=kind==='warmup'||kind==='accessory'?kind:'strength';
   const minutes=integer(get(block,'timeCap'));
   const exact=Number(block.dataset.timeCapSeconds)||0;
-  const structure=(()=>{try{return JSON.parse(block.dataset.workoutStructure||'null');}catch{return null;}})();
+  const structure=readAdvancedStructure(block);
   return {kind,format,title:get(block,'title'),rounds:integer(get(block,'rounds'),1),timeCap:minutes,
    ...(structure?{structure}:{}),
    ...(exact>0?{timeCapSeconds:Math.max(0,minutes*60+exact%60)}:{}),
    exercises:[...block.querySelectorAll('[data-editor-exercise]')].map(el=>{
     const row={id:el.dataset.id||'custom',name:el.dataset.name||el.querySelector('.exercise-title strong')?.textContent||'',sets:integer(get(el,'sets'),3),reps:integer(get(el,'reps'),8),rir:integer(get(el,'rir'),2),weight:Number(get(el,'weight')||0),duration:integer(get(el,'duration')),notes:get(el,'notes')||''};
     if(el.dataset.originId)row.originId=el.dataset.originId;
+    try {
+     const sets=JSON.parse(el.dataset.plannedSets||'null');
+     if(Array.isArray(sets))row.plannedSets=sets;
+    } catch { /* Old drafts remain compatible. */ }
     if(el.dataset.itemKind==='rest'||isRestMovement(row)){row.id='rest';row.itemKind='rest';row.isRest=true;}
     if(el.dataset.itemKind==='free'){row.itemKind='free';row.source='free';}
     return row;
@@ -434,7 +541,35 @@ export function handleEditorClick(event){
  const blockEl=node.closest('[data-editor-block]');
  const blockIndex=blockEl?Number(blockEl.dataset.index):-1;
 
- if(action==='close-panel'){
+ if(['advanced-add','advanced-subphase','advanced-delete','advanced-up','advanced-down'].includes(action)){
+   const current=readPrescription(editor),target=current.blocks[blockIndex];
+   if(!target)return true;
+   const structure=target.structure||{version:1,phases:[]},roots=structure.phases||[];
+   const visit=(list,parent='')=>list.flatMap(p=>[{phase:p,parent,list},...visit(p.children||[],p.id)]);
+   const found=visit(roots).find(x=>x.phase.id===node.dataset.phaseId);
+   const blank=()=>({id:newEditorID(),kind:'main',title:'Trabajo principal',movementIDs:[],children:[]});
+   if(action==='advanced-add')roots.push(blank());
+   else if(action==='advanced-subphase'&&found){
+    found.phase.children??=[];
+    found.phase.children.push({...blank(),title:'Subfase'});
+   }else if(found){
+    const i=found.list.findIndex(p=>p.id===found.phase.id);
+    if(i>=0){
+     if(action==='advanced-delete')found.list.splice(i,1);
+     else{
+      const to=i+(action==='advanced-up'?-1:1);
+      if(to>=0&&to<found.list.length)[found.list[i],found.list[to]]=
+       [found.list[to],found.list[i]];
+     }
+    }
+   }
+   target.structure={...structure,phases:roots};
+   refreshEditor(editor,current);
+   const newDetails=editor.closest('form')?.querySelector('[data-editor-block][data-index="'+blockIndex+'"] [data-advanced-structure]');
+   if(newDetails)newDetails.open=true;
+   return true;
+  }
+  if(action==='close-panel'){
   const idx=blockIndex>=0?blockIndex:editorUI.pickerBlock;
   const cur=readPrescription(editor);
   // Si se cancela el WOD del footer sin elegir, quita el bloque vacío recién creado.
@@ -624,8 +759,11 @@ export function handleEditorSearch(event){
 }
 
 const WOD_FORMAT_WIRE={
- none:null,sets:'strength',amrap:'amrap',emom:'emom',every:'emom',rft:'forTime',fortime:'forTime',
- tabata:'tabata',circuit:'circuit',chipper:'chipper'
+ none:null,sets:'strength',strength:'strength',amrap:'amrap',emom:'emom',
+ every:'emom',rft:'forTime',fortime:'forTime',tabata:'tabata',
+ circuit:'circuit',chipper:'chipper',deathBy:'deathBy',ladder:'ladder',
+ partner:'partner',buyInCashOut:'buyInCashOut',roundsForQuality:'roundsForQuality',
+ maxEffort:'maxEffort',afap:'afap'
 };
 
 /** schemaVersion:1 consumido por iOS/Android. Rest solo como movement isRest en WOD. */
@@ -677,9 +815,19 @@ function canonicalBlock(b,entries,uid,forceWod){
    entry.reps=Math.max(1,e.reps||1);
    entry.notes=e.notes;
   }else{
-   entry.plannedSets=Array.from({length:Math.min(e.sets,30)},()=>({
-    id:uid(),targetReps:Math.max(1,e.reps||1),
-    targetWeightKg:e.weight||null,targetRir:e.rir
+   // Preserve individual rows and advanced techniques across unrelated edits.
+   const previous=Array.isArray(e.plannedSets)&&e.plannedSets.length===e.sets?e.plannedSets:null;
+   const uniform=previous?.length>0 && previous.every(row=>
+    row.targetReps===previous[0].targetReps &&
+    (row.targetWeightKg??0)===(previous[0].targetWeightKg??0) &&
+    (row.targetRir??2)===(previous[0].targetRir??2));
+   entry.plannedSets=previous?previous.map(row=>({...row})):
+    Array.from({length:Math.min(e.sets,30)},()=>({
+     id:uid(),targetReps:Math.max(1,e.reps||1),
+     targetWeightKg:e.weight||null,targetRir:e.rir
+    }));
+   if(uniform)entry.plannedSets=entry.plannedSets.map(row=>({...row,
+    targetReps:Math.max(1,e.reps||1),targetWeightKg:e.weight||null,targetRir:e.rir
    }));
   }
   return entry;
@@ -696,15 +844,15 @@ function canonicalBlock(b,entries,uid,forceWod){
   canonical.timeCapMinutes=onlyRest?null:(b.timeCap||null);
   if(!onlyRest&&Number.isInteger(b.timeCapSeconds)&&b.timeCapSeconds>0)
    canonical.timeCapSeconds=b.timeCapSeconds;
-  if(!onlyRest&&b.structure&&b.structure.version===1) {
-   const valid=new Set(exercises.map(e=>e.id));
-   const clean=phase=>({
-    ...phase,
-    movementIDs:(phase.movementIDs||[]).filter(id=>valid.has(id)),
-    children:(phase.children||[]).map(clean)
-   });
-   canonical.structure={...b.structure,phases:(b.structure.phases||[]).map(clean)};
-  }
+ }
+ if(!onlyRest&&b.structure&&b.structure.version===1) {
+  const valid=new Set(exercises.map(e=>e.id));
+  const clean=phase=>({
+   ...phase,
+   movementIDs:(phase.movementIDs||[]).filter(id=>valid.has(id)),
+   children:(phase.children||[]).map(clean)
+  });
+  canonical.structure={...b.structure,phases:(b.structure.phases||[]).map(clean)};
  }
  // catalogKey null rompe algunos clientes JSON; solo enviar clave cuando hay catálogo.
  for(const list of [canonical.exercises,canonical.movements]){
@@ -725,7 +873,10 @@ export function visualPrescription(prescription){
   const wod=b.kind==='wod',entries=(wod?b.movements:b.exercises)||[];
   const formatWire=b.wodFormat||'';
   return {kind:wod?'wod':(b.kind==='warmup'?'warmup':b.kind==='accessory'?'accessory':'strength'),
-   format:wod?({amrap:'amrap',emom:'emom',forTime:'rft',tabata:'tabata',circuit:'circuit',chipper:'chipper',strength:'sets'})[formatWire]||'fortime'
+   format:wod?({amrap:'amrap',emom:'emom',forTime:'rft',tabata:'tabata',
+    circuit:'circuit',chipper:'chipper',strength:'strength',deathBy:'deathBy',
+    ladder:'ladder',partner:'partner',buyInCashOut:'buyInCashOut',
+    roundsForQuality:'roundsForQuality',maxEffort:'maxEffort',afap:'afap'})[formatWire]||'fortime'
     :(formatWire?'sets':'none'),
    title:b.title,rounds:b.rounds||1,timeCap:b.timeCapMinutes||0,
    ...(b.structure?{structure:b.structure}:{}),
@@ -734,6 +885,7 @@ export function visualPrescription(prescription){
     if(e.isRest)return restItem(e.restSeconds||60);
     const free=e.source==='free'||!e.catalogKey;
     return {id:e.catalogKey||'custom',originId:e.id,name:e.name,
+    ...(!wod?{plannedSets:e.plannedSets||null}:{}),
      sets:wod?1:Math.max(1,e.plannedSets?.length||1),
      reps:wod?e.reps||1:e.plannedSets?.[0]?.targetReps||8,
      rir:wod?0:e.plannedSets?.[0]?.targetRir??2,

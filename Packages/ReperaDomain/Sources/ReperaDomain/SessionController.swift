@@ -274,11 +274,17 @@ public struct SessionController: Sendable {
                 case .strength:
                     for item in block.exercises {
                         guard let exercise = byId[item.exerciseId] else { continue }
+                        let inheritedTechnique = block.structure?.technique(for: item.id)
+                        let planned = item.plannedSets.map { set -> PlannedSet in
+                            var value = set
+                            if value.technique == nil { value.technique = inheritedTechnique }
+                            return value
+                        }
                         sessionExercises.append(
                             SessionExercise(
                                 id: item.id,
                                 exercise: exercise,
-                                plannedSets: item.plannedSets,
+                                plannedSets: planned,
                                 quantityUnit: item.quantityUnit,
                                 restSeconds: item.restSeconds,
                                 supersetGroup: nil,
