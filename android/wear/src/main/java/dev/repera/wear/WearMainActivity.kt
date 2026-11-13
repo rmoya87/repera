@@ -331,6 +331,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var reviewRounds by mutableStateOf(0)
     private var reviewExtraReps by mutableStateOf(0)
     private var reviewElapsedSeconds by mutableStateOf(0)
+    private var reviewMeasuredValue by mutableStateOf(0.0)
+    private var reviewPhaseIteration by mutableStateOf(1)
+    private var reviewParticipantIndex by mutableStateOf(1)
+    private var reviewPartialReps by mutableStateOf(0)
     private var setReviewIndex by mutableStateOf<Int?>(null)
     private val sessionCache by lazy { getSharedPreferences("repera.wear.session", MODE_PRIVATE) }
 
@@ -550,6 +554,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 reviewRounds = reviewRounds,
                                 reviewExtraReps = reviewExtraReps,
                                 reviewElapsedSeconds = reviewElapsedSeconds,
+                                reviewMeasuredValue = reviewMeasuredValue,
+                                reviewPhaseIteration = reviewPhaseIteration,
+                                reviewParticipantIndex = reviewParticipantIndex,
+                                reviewPartialReps = reviewPartialReps,
                                 setReviewIndex = setReviewIndex,
                                 hubNotice = hubNotice,
                                 liveNotice = liveNotice,
@@ -3079,7 +3087,11 @@ data class WatchSessionSummary(
     val blockTimeCapMinutes: Int? = null,
     val wodFormatWire: String? = null,
     val blockId: String? = null,
-    val blockExerciseLines: List<String> = emptyList()
+    val blockExerciseLines: List<String> = emptyList(),
+    val wodResultMetric: String? = null,
+    val wodPhaseID: String? = null,
+    val wodPhaseCount: Int = 1,
+    val wodCollaboration: String? = null
 ) {
     companion object {
         /** (first exercise index, Apple displayBlockHeader) per consecutive block run. */
@@ -3162,6 +3174,16 @@ data class WatchSessionSummary(
                 val reps = ps?.takeIf { it.length() > 0 }?.optJSONObject(0)?.optInt("targetReps")
                 if (reps != null && reps > 0) "$name · $reps reps" else name
             }
+            val parentBlock=session.optJSONArray("routineBlocks")?.let { blocks ->
+                (0 until blocks.length()).map { blocks.getJSONObject(it) }
+                    .firstOrNull { it.optString("id") == blockId }
+            }
+            val structure=parentBlock?.optJSONObject("structure")
+            val scorePhase=structure?.optJSONArray("phases")?.let { phases ->
+                val list=(0 until phases.length()).map { phases.getJSONObject(it) }
+                list.firstOrNull { it.optString("kind")=="work" && it.optInt("repeatCount")>1 }
+                    ?:list.firstOrNull { it.optString("kind")!="rest" }
+            }
             return WatchSessionSummary(
                 sessionId = session.getString("id"),
                 title = session.getString("title"),
@@ -3213,7 +3235,11 @@ data class WatchSessionSummary(
                 blockTimeCapMinutes = intField("blockTimeCapMinutes"),
                 wodFormatWire = wodFormat?.wireName,
                 blockId = blockId.takeIf { it.isNotBlank() },
-                blockExerciseLines = blockLines
+                blockExerciseLines = blockLines,
+                wodResultMetric = structure?.optString("resultMetric")?.takeIf { it.isNotBlank() },
+                wodPhaseID = scorePhase?.optString("id")?.takeIf { it.isNotBlank() },
+                wodPhaseCount = scorePhase?.optInt("repeatCount",1)?.coerceIn(1,200) ?: 1,
+                wodCollaboration = structure?.optString("collaboration")?.takeIf { it.isNotBlank() }
             )
         }
     }
