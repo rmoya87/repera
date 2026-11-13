@@ -83,4 +83,48 @@ struct WorkoutStructureTests {
         #expect(cloned.structure?.activeMovementIDs(in: cloned) == Set([cloned.movements[0].id]))
         #expect(cloned.structure?.activeMovementIDs(in: block).isEmpty == true)
     }
+    @Test func advancedStrengthTechniquesRemainTypedAndCopyable() throws {
+        let technique = WorkoutStrengthTechnique(
+            method: .cluster, tempo: "31X1", pauseSeconds: 2,
+            intraSetRestSeconds: 20, clusterReps: 3)
+        #expect(technique.isValid)
+        #expect(!WorkoutStrengthTechnique(method: .tempo, tempo: "abc").isValid)
+        let original = PlannedSet(targetReps: 9, targetWeightKg: 70, technique: technique)
+        let encoded = try JSONEncoder().encode(original)
+        let restored = try JSONDecoder().decode(PlannedSet.self, from: encoded)
+        #expect(restored.technique == technique)
+        #expect(original.duplicatingContent().technique == technique)
+
+        let movement = RoutineExercise(exerciseId: UUID(), plannedSets: [original])
+        var strength = RoutineBlock.strength(title: "Superset", exercises: [movement])
+        strength.structure = WorkoutStructure(phases: [
+            WorkoutPhase(kind: .main, title: "Cluster",
+                         movementIDs: [movement.id], technique: technique)
+        ])
+        #expect(strength.structure?.technique(for: movement.id) == technique)
+    }
+
+    @Test func perAthletePhaseResultsSurviveLegacyResultCodec() throws {
+        let id = UUID()
+        let phase = UUID()
+        let results = [
+            WorkoutPhaseResult(phaseID: phase, iteration: 1, participantIndex: 1, completedReps: 12),
+            WorkoutPhaseResult(phaseID: phase, iteration: 1, participantIndex: 2, completedReps: 10),
+            WorkoutPhaseResult(phaseID: phase, iteration: 2, participantIndex: 1, completedReps: 9)
+        ]
+        let wod = WODBlockResult(id: id, format: .amrap, phaseResults: results)
+        #expect(wod.contribution(for: 1) == 21)
+        #expect(wod.contribution(for: 2) == 10)
+        let encoded = try JSONEncoder().encode(wod)
+        let decoded = try JSONDecoder().decode(WODBlockResult.self, from: encoded)
+        #expect(decoded.phaseResults?.count == 3)
+
+        var legacy = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacy.removeValue(forKey: "phaseResults")
+        let old = try JSONDecoder().decode(WODBlockResult.self,
+            from: JSONSerialization.data(withJSONObject: legacy))
+        #expect(old.phaseResults == nil)
+        #expect(old.totalRecordedPhaseReps == 0)
+    }
+
 }
